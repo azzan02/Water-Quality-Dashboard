@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Water Quality Monitoring Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+        }
+        .dashboard {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 20px;
+        }
+        .panel {
+            background-color: #f5f5f5;
+            border-radius: 10px;
+            padding: 15px;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .value {
+            font-size: 2em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+        .chart-container {
+            height: 250px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Water Quality Monitoring Dashboard</h1>
+
+    <div class="dashboard">
+        <div class="panel">
+            <h2>pH Level</h2>
+            <div id="phValue" class="value">--</div>
+            <div class="chart-container">
+                <canvas id="phChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Electrical Conductivity (EC)</h2>
+            <div id="ecValue" class="value">--</div>
+            <div class="chart-container">
+                <canvas id="ecChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Total Dissolved Solids (TDS)</h2>
+            <div id="tdsValue" class="value">--</div>
+            <div class="chart-container">
+                <canvas id="tdsChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel">
+            <h2>Dissolved Oxygen (DO)</h2>
+            <div id="doValue" class="value">--</div>
+            <div class="chart-container">
+                <canvas id="doChart"></canvas>
+            </div>
+        </div>
+
+        <div class="panel" style="grid-column: 1 / -1;">
+            <h2>GPS Location</h2>
+            <div id="gpsInfo">No GPS Data Available</div>
+        </div>
+    </div>
+
+    <script>
+        const pHValues = [];
+        const ecValues = [];
+        const tdsValues = [];
+        const doValues = [];
+        const labels = [];
+    
+        const maxDataPoints = 10;
+    
+        function createChart(ctx, label, borderColor) {
+            return new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [{
+                        label: label,
+                        data: [],
+                        borderColor: borderColor,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    animation: false,
+                    scales: {
+                        y: { beginAtZero: true }
+                    }
+                }
+            });
+        }
+    
+        const pHChart = createChart(document.getElementById('phChart').getContext('2d'), 'pH', 'teal');
+        const ecChart = createChart(document.getElementById('ecChart').getContext('2d'), 'EC (µS/cm)', 'mediumpurple');
+        const tdsChart = createChart(document.getElementById('tdsChart').getContext('2d'), 'TDS (ppm)', 'orange');
+        const doChart = createChart(document.getElementById('doChart').getContext('2d'), 'DO (mg/L)', 'deepskyblue');
+    
+        function updateChart(chart, valueArray, newValue) {
+            const now = new Date().toLocaleTimeString();
+            labels.push(now);
+            valueArray.push(newValue);
+            if (labels.length > maxDataPoints) {
+                labels.shift();
+                valueArray.shift();
+            }
+            chart.data.labels = labels;
+            chart.data.datasets[0].data = valueArray;
+            chart.update();
+        }
+    
+        function updateDashboard(data) {
+            if (!data) return;
+            document.getElementById('phValue').textContent = data.pH || '--';
+            document.getElementById('ecValue').textContent = data.EC || '--';
+            document.getElementById('tdsValue').textContent = data.TDS || '--';
+            document.getElementById('doValue').textContent = data.DO || '--';
+    
+            updateChart(pHChart, pHValues, parseFloat(data.pH));
+            updateChart(ecChart, ecValues, parseFloat(data.EC));
+            updateChart(tdsChart, tdsValues, parseFloat(data.TDS));
+            updateChart(doChart, doValues, parseFloat(data.DO));
+        }
+    
+        function fetchLatestData() {
+            fetch('/lora/latest')
+                .then(response => response.json())
+                .then(updateDashboard)
+                .catch(error => console.error('Error fetching latest data:', error));
+        }
+    
+        // Subscribe to the stream
+        const eventSource = new EventSource('/stream');
+        eventSource.onmessage = function () {
+            fetchLatestData();
+        };
+    
+        // Initial fetch
+        fetchLatestData();
+    </script>
+    <script>
+        function updateGPSLocation(lat, lon) {
+            const gpsInfo = document.getElementById('gpsInfo');
+            gpsInfo.textContent = `Latitude: ${lat}, Longitude: ${lon}`;
+        }
+
+        // Simulate GPS data update (replace with actual GPS data fetching logic)
+        setInterval(() => {
+            const lat = (Math.random() * 180 - 90).toFixed(6);
+            const lon = (Math.random() * 360 - 180).toFixed(6);
+            updateGPSLocation(lat, lon);
+        }, 5000); // Update every 5 seconds
+    </script>
+    
+    <h2>pH Level</h2>
+    <span id="phValue">--</span>
+    <canvas id="phChart"></canvas>
+    
+    <h2>Electrical Conductivity (EC)</h2>
+    <span id="ecValue">--</span>
+    <canvas id="ecChart"></canvas>
+    
+    <h2>Total Dissolved Solids (TDS)</h2>
+    <span id="tdsValue">--</span>
+    <canvas id="tdsChart"></canvas>
+    
+    <h2>Dissolved Oxygen (DO)</h2>
+    <span id="doValue">--</span>
+    <canvas id="doChart"></canvas>
+        
+</body>
+</html>
