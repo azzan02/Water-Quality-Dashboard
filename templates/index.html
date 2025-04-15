@@ -1,186 +1,522 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <title>Water Quality Monitoring Dashboard</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 20px;
-        }
-        .dashboard {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 20px;
-        }
-        .panel {
-            background-color: #f5f5f5;
-            border-radius: 10px;
-            padding: 15px;
-            box-shadow: 0 0 10px rgba(0,0,0,0.1);
-        }
-        .value {
-            font-size: 2em;
-            font-weight: bold;
-            margin: 10px 0;
-        }
-        .chart-container {
-            height: 250px;
-        }
-    </style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Water Quality Dashboard</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #052847;
+      color: white;
+    }
+    h1 {
+      text-align: center;
+      padding: 20px;
+      margin: 0;
+      font-size: 28px;
+      color: white;
+    }
+    .dashboard {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+      gap: 20px;
+      padding: 20px;
+    }
+    .panel {
+      background-color: #09385c;
+      border-radius: 12px;
+      padding: 15px;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+    }
+    .panel h2 {
+      font-size: 18px;
+      margin: 0 0 10px;
+    }
+    .chart-container {
+      height: 240px;
+    }
+    #gpsInfo {
+      font-size: 16px;
+      margin-top: 10px;
+    }
+    .status-indicator {
+      display: inline-block;
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      margin-left: 10px;
+      background-color: #888; /* Default grey */
+    }
+    .status-connected {
+      background-color: #4caf50; /* Green */
+    }
+    .status-disconnected {
+      background-color: #f44336; /* Red */
+    }
+    .last-updated {
+      font-size: 14px;
+      color: #ccc;
+      text-align: center;
+      margin-top: -10px;
+      padding-bottom: 10px;
+    }
+    #debug {
+      background-color: rgba(0, 0, 0, 0.5);
+      color: #00ff00;
+      font-family: monospace;
+      font-size: 12px;
+      padding: 10px;
+      margin: 10px;
+      max-height: 200px;
+      overflow-y: auto;
+      border-radius: 5px;
+    }
+    .controls {
+      display: flex;
+      justify-content: center;
+      margin-top: -10px;
+      margin-bottom: 10px;
+    }
+    .controls button {
+      background-color: #09385c;
+      color: white;
+      border: none;
+      padding: 5px 15px;
+      margin: 0 5px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .controls button:hover {
+      background-color: #0a4d7c;
+    }
+  </style>
 </head>
 <body>
-    <h1>Water Quality Monitoring Dashboard</h1>
-
-    <div class="dashboard">
-        <div class="panel">
-            <h2>pH Level</h2>
-            <div id="phValue" class="value">--</div>
-            <div class="chart-container">
-                <canvas id="phChart"></canvas>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Electrical Conductivity (EC)</h2>
-            <div id="ecValue" class="value">--</div>
-            <div class="chart-container">
-                <canvas id="ecChart"></canvas>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Total Dissolved Solids (TDS)</h2>
-            <div id="tdsValue" class="value">--</div>
-            <div class="chart-container">
-                <canvas id="tdsChart"></canvas>
-            </div>
-        </div>
-
-        <div class="panel">
-            <h2>Dissolved Oxygen (DO)</h2>
-            <div id="doValue" class="value">--</div>
-            <div class="chart-container">
-                <canvas id="doChart"></canvas>
-            </div>
-        </div>
-
-        <div class="panel" style="grid-column: 1 / -1;">
-            <h2>GPS Location</h2>
-            <div id="gpsInfo">No GPS Data Available</div>
-        </div>
+  <h1>BlueShield USV <span class="status-indicator" id="connectionStatus"></span></h1>
+  <div class="last-updated" id="lastUpdated">Last updated: Never</div>
+  <div class="controls">
+    <button id="testDataBtn">Generate Test Data</button>
+    <button id="toggleDebugBtn">Toggle Debug</button>
+  </div>
+  <div class="dashboard">
+    <div class="panel">
+      <h2>Water pH</h2>
+      <div class="chart-container"><canvas id="phChart"></canvas></div>
     </div>
+    <div class="panel">
+      <h2>Dissolved Oxygen (%)</h2>
+      <div class="chart-container"><canvas id="doChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Conductivity (uS/cm)</h2>
+      <div class="chart-container"><canvas id="ecChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Total Dissolved Solids (ppm)</h2>
+      <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>GPS Location</h2>
+      <div id="gpsInfo">No GPS Data Available</div>
+    </div>
+  </div>
 
-    <script>
-        const pHValues = [];
-        const ecValues = [];
-        const tdsValues = [];
-        const doValues = [];
-        const labels = [];
-    
-        const maxDataPoints = 10;
-    
-        function createChart(ctx, label, borderColor) {
-            return new Chart(ctx, {
-                type: 'line',
-                data: {
-                    labels: labels,
-                    datasets: [{
-                        label: label,
-                        data: [],
-                        borderColor: borderColor,
-                        backgroundColor: 'transparent',
-                        borderWidth: 2
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    animation: false,
-                    scales: {
-                        y: { beginAtZero: true }
-                    }
-                }
-            });
-        }
-    
-        const pHChart = createChart(document.getElementById('phChart').getContext('2d'), 'pH', 'teal');
-        const ecChart = createChart(document.getElementById('ecChart').getContext('2d'), 'EC (µS/cm)', 'mediumpurple');
-        const tdsChart = createChart(document.getElementById('tdsChart').getContext('2d'), 'TDS (ppm)', 'orange');
-        const doChart = createChart(document.getElementById('doChart').getContext('2d'), 'DO (mg/L)', 'deepskyblue');
-    
-        function updateChart(chart, valueArray, newValue) {
-            const now = new Date().toLocaleTimeString();
-            labels.push(now);
-            valueArray.push(newValue);
-            if (labels.length > maxDataPoints) {
-                labels.shift();
-                valueArray.shift();
+  <div id="debug" style="display: none;"></div>
+
+  <script>
+    // Debug logging function
+    function log(message) {
+      const debugPanel = document.getElementById('debug');
+      const timestamp = new Date().toLocaleTimeString();
+      debugPanel.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+      debugPanel.scrollTop = debugPanel.scrollHeight;
+      console.log(`[${timestamp}] ${message}`);
+    }
+
+    log("Dashboard initializing...");
+
+    // Initialize charts
+    function createLineChart(ctx, label, color) {
+      return new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels: [],
+          datasets: [{
+            label: label,
+            data: [],
+            borderColor: color,
+            backgroundColor: color + '33', // Semi-transparent fill
+            fill: true,
+            tension: 0.3
+          }]
+        },
+        options: {
+          scales: {
+            x: {
+              ticks: { color: 'white' }
+            },
+            y: {
+              beginAtZero: false,
+              ticks: { color: 'white' }
             }
-            chart.data.labels = labels;
-            chart.data.datasets[0].data = valueArray;
-            chart.update();
+          },
+          plugins: {
+            legend: {
+              display: false // Hide legend
+            }
+          },
+          responsive: true,
+          maintainAspectRatio: false
         }
-    
-        function updateDashboard(data) {
-            if (!data) return;
-            document.getElementById('phValue').textContent = data.pH || '--';
-            document.getElementById('ecValue').textContent = data.EC || '--';
-            document.getElementById('tdsValue').textContent = data.TDS || '--';
-            document.getElementById('doValue').textContent = data.DO || '--';
-    
-            updateChart(pHChart, pHValues, parseFloat(data.pH));
-            updateChart(ecChart, ecValues, parseFloat(data.EC));
-            updateChart(tdsChart, tdsValues, parseFloat(data.TDS));
-            updateChart(doChart, doValues, parseFloat(data.DO));
-        }
-    
-        function fetchLatestData() {
-            fetch('/lora/latest')
-                .then(response => response.json())
-                .then(updateDashboard)
-                .catch(error => console.error('Error fetching latest data:', error));
-        }
-    
-        // Subscribe to the stream
-        const eventSource = new EventSource('/stream');
-        eventSource.onmessage = function () {
-            fetchLatestData();
-        };
-    
-        // Initial fetch
-        fetchLatestData();
-    </script>
-    <script>
-        function updateGPSLocation(lat, lon) {
-            const gpsInfo = document.getElementById('gpsInfo');
-            gpsInfo.textContent = `Latitude: ${lat}, Longitude: ${lon}`;
-        }
+      });
+    }
 
-        // Simulate GPS data update (replace with actual GPS data fetching logic)
-        setInterval(() => {
-            const lat = (Math.random() * 180 - 90).toFixed(6);
-            const lon = (Math.random() * 360 - 180).toFixed(6);
-            updateGPSLocation(lat, lon);
-        }, 5000); // Update every 5 seconds
-    </script>
-    
-    <h2>pH Level</h2>
-    <span id="phValue">--</span>
-    <canvas id="phChart"></canvas>
-    
-    <h2>Electrical Conductivity (EC)</h2>
-    <span id="ecValue">--</span>
-    <canvas id="ecChart"></canvas>
-    
-    <h2>Total Dissolved Solids (TDS)</h2>
-    <span id="tdsValue">--</span>
-    <canvas id="tdsChart"></canvas>
-    
-    <h2>Dissolved Oxygen (DO)</h2>
-    <span id="doValue">--</span>
-    <canvas id="doChart"></canvas>
-        
+    log("Creating charts...");
+    const phChart = createLineChart(document.getElementById('phChart'), 'pH', '#ffd700'); // Gold
+    const doChart = createLineChart(document.getElementById('doChart'), 'DO', '#cc33cc'); // Magenta
+    const ecChart = createLineChart(document.getElementById('ecChart'), 'Conductivity', '#00bfff'); // DeepSkyBlue
+    const tdsChart = createLineChart(document.getElementById('tdsChart'), 'TDS', '#66cc66'); // Light Green
+    log("Charts created");
+
+    const maxData = 20; // Max number of data points to show on charts
+    let sensorData = []; // Array to hold historical data
+
+    // Handle failures by reconnecting
+    let failedAttempts = 0;
+    let eventSource = null;
+    let pollInterval = null;
+
+    // Update GPS display
+    function updateGPSLocation(lat, lon) {
+      document.getElementById('gpsInfo').textContent = `Latitude: ${lat}, Longitude: ${lon}`;
+      log(`Updated GPS: ${lat}, ${lon}`);
+    }
+
+    // ========================================================
+    // START: MODIFIED updateCharts FUNCTION
+    // ========================================================
+    function updateCharts(data) {
+         try {
+             if (!data || Object.keys(data).length === 0) {
+                 log("No data to update");
+                 return;
+             }
+
+             // If we received a successful update, reset failure counter
+             failedAttempts = 0;
+
+             log(`Updating charts with data: ${JSON.stringify(data)}`);
+
+             // --- START FIX ---
+             // Check if pH is nested within the 'message' property
+             if (data.message && typeof data.message === 'string') {
+                try {
+                    // Attempt to parse the inner JSON-like string
+                    const messageContent = data.message.replace(/^"|"$/g, '').replace(/\\"/g, '"'); // Clean up quotes
+                    if (messageContent.startsWith('pH:')) {
+                        const phValue = parseFloat(messageContent.split(':')[1]);
+                        if (!isNaN(phValue)) {
+                            data.pH = phValue; // Add the parsed pH to the main data object
+                            log(`Parsed pH from message: ${data.pH}`);
+                        } else {
+                             log(`Could not parse pH value from message: ${messageContent}`);
+                        }
+                    }
+                 } catch (parseError) {
+                     log(`Error parsing message content: ${parseError}`);
+                 }
+             }
+             // --- END FIX ---
+
+
+             // Add new data if it has a timestamp
+             if (data.timestamp) {
+                 // Check if we already have this timestamp to prevent duplicates
+                 const existingIndex = sensorData.findIndex(item => item.timestamp === data.timestamp);
+                 if (existingIndex === -1) {
+                     sensorData.push(data);
+                     if (sensorData.length > maxData) {
+                         sensorData.shift(); // Remove the oldest data point
+                     }
+                 } else {
+                    // Optionally update existing data point if needed
+                    // sensorData[existingIndex] = data;
+                    log(`Data with timestamp ${data.timestamp} already exists. Skipping add.`);
+                 }
+             }
+
+             // Clear existing chart data before repopulating
+             phChart.data.labels = [];
+             phChart.data.datasets[0].data = [];
+             doChart.data.labels = [];
+             doChart.data.datasets[0].data = [];
+             ecChart.data.labels = [];
+             ecChart.data.datasets[0].data = [];
+             tdsChart.data.labels = [];
+             tdsChart.data.datasets[0].data = [];
+
+             log(`Processing ${sensorData.length} data points`);
+
+             // Update with all available data
+             sensorData.forEach(item => {
+                 // Ensure timestamp exists before trying to format it
+                 const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : 'Unknown Time';
+
+                 // --- MODIFIED pH Check ---
+                 // Now it checks item.pH which might have been added by the fix above
+                 if (item.pH !== undefined && item.pH !== null) {
+                     phChart.data.labels.push(time);
+                     phChart.data.datasets[0].data.push(parseFloat(item.pH));
+                 }
+                 // --- END MODIFIED pH Check ---
+
+
+                 if (item.DO !== undefined && item.DO !== null) {
+                     doChart.data.labels.push(time);
+                     doChart.data.datasets[0].data.push(parseFloat(item.DO));
+                 }
+
+                 if (item.EC !== undefined && item.EC !== null) {
+                     ecChart.data.labels.push(time);
+                     ecChart.data.datasets[0].data.push(parseFloat(item.EC));
+                 }
+
+                 if (item.TDS !== undefined && item.TDS !== null) {
+                     tdsChart.data.labels.push(time);
+                     tdsChart.data.datasets[0].data.push(parseFloat(item.TDS));
+                 }
+             });
+
+             // Update GPS info if available (use latest data from the main 'data' object received)
+             if (data.Lat && data.Lon) {
+                 updateGPSLocation(data.Lat, data.Lon);
+             }
+
+             // Update last updated time (use timestamp from the main 'data' object)
+             if (data.timestamp) {
+               document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+             }
+
+
+             // Update all charts
+             phChart.update();
+             doChart.update();
+             ecChart.update();
+             tdsChart.update();
+
+             log("Charts updated successfully");
+         } catch (error) {
+             log(`Error updating charts: ${error.message} \nStack: ${error.stack}`); // Added stack trace for better debugging
+         }
+     }
+    // ========================================================
+    // END: MODIFIED updateCharts FUNCTION
+    // ========================================================
+
+
+    // Function to set up SSE (Server-Sent Events)
+    function setupEventSource() {
+      if (eventSource) {
+        eventSource.close(); // Close existing connection if any
+      }
+
+      log("Setting up EventSource...");
+      eventSource = new EventSource('/stream'); // Endpoint for SSE
+
+      eventSource.onopen = function() {
+        log("SSE connection opened");
+        document.getElementById('connectionStatus').classList.add('status-connected');
+        document.getElementById('connectionStatus').classList.remove('status-disconnected');
+        failedAttempts = 0; // Reset counter on successful connection
+        if (pollInterval) { // If polling was active, stop it
+             clearInterval(pollInterval);
+             pollInterval = null;
+             log("Stopped polling fallback.");
+        }
+      };
+
+      eventSource.onerror = function(event) {
+        log("SSE connection error");
+        document.getElementById('connectionStatus').classList.add('status-disconnected');
+        document.getElementById('connectionStatus').classList.remove('status-connected');
+        eventSource.close(); // Close the connection on error
+
+        failedAttempts++;
+        log(`Connection failed (attempt ${failedAttempts})`);
+
+        if (failedAttempts < 5) {
+          // Try to reconnect after a delay (exponential backoff)
+          const delay = Math.min(30000, 1000 * Math.pow(2, failedAttempts)); // Max 30 seconds
+          log(`Attempting to reconnect SSE in ${delay/1000} seconds...`);
+
+          setTimeout(() => {
+            setupEventSource(); // Retry SSE setup
+          }, delay);
+        } else {
+          log("Too many SSE connection failures. Switching to polling mode.");
+          setupPollingFallback(); // Switch to polling after multiple failures
+        }
+      };
+
+      eventSource.onmessage = function(event) {
+        log(`SSE message received: ${event.data}`);
+        // Expecting a simple 'update' message to trigger fetch
+        if (event.data === 'update') {
+          log("Fetching updated data via SSE trigger...");
+          fetch('/lora/latest')
+            .then(response => {
+              if (!response.ok) {
+                throw new Error(`HTTP error ${response.status}`);
+              }
+              return response.json();
+            })
+            .then(data => {
+              log(`Received updated data: ${JSON.stringify(data)}`);
+              if (Object.keys(data).length > 0) {
+                 updateCharts(data); // Pass the single latest data point object
+              } else {
+                 log("Received empty data object from /lora/latest");
+              }
+            })
+            .catch(error => {
+              log(`Error fetching updated data after SSE trigger: ${error}`);
+              // Don't increment failedAttempts here, SSE connection itself is fine
+            });
+        } else {
+             log(`Received unexpected SSE message: ${event.data}`);
+             // Optionally try to parse event.data directly if backend sends full JSON
+             try {
+                 const jsonData = JSON.parse(event.data);
+                 if (Object.keys(jsonData).length > 0) {
+                    updateCharts(jsonData);
+                 }
+             } catch(e) {
+                 // Ignore if it's not JSON or the 'update' string
+             }
+        }
+      };
+    }
+
+    // Polling fallback for environments where SSE doesn't work or fails repeatedly
+    function setupPollingFallback() {
+      log("Setting up polling fallback...");
+
+      // Ensure SSE is closed if we switch to polling
+      if (eventSource) {
+        eventSource.close();
+        eventSource = null;
+      }
+
+      // Clear any existing polling interval
+      if (pollInterval) {
+        clearInterval(pollInterval);
+      }
+
+      const pollFrequency = 5000; // Poll every 5 seconds
+      log(`Polling /lora/latest every ${pollFrequency / 1000} seconds`);
+
+      // Initial fetch for polling
+      fetchLatestDataPolling();
+
+      // Set interval for subsequent polls
+      pollInterval = setInterval(fetchLatestDataPolling, pollFrequency);
+    }
+
+    // Function to fetch data during polling
+    function fetchLatestDataPolling() {
+        log("Polling for updates...");
+        fetch('/lora/latest')
+          .then(response => {
+            if (!response.ok) {
+              throw new Error(`HTTP error ${response.status}`);
+            }
+            return response.json();
+          })
+          .then(data => {
+            if (Object.keys(data).length > 0) {
+              updateCharts(data); // Update charts with the latest data
+              document.getElementById('connectionStatus').classList.add('status-connected');
+              document.getElementById('connectionStatus').classList.remove('status-disconnected');
+            } else {
+              log("Polling received empty data object.");
+            }
+          })
+          .catch(error => {
+            log(`Polling error: ${error}`);
+            document.getElementById('connectionStatus').classList.add('status-disconnected');
+            document.getElementById('connectionStatus').classList.remove('status-connected');
+            // Consider stopping polling after too many errors?
+          });
+    }
+
+    // Load initial historical data
+    log("Fetching historical data...");
+    fetch('/lora/history') // Endpoint for historical data
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`HTTP error ${response.status}`);
+        }
+        return response.json();
+      })
+      .then(data => {
+        log(`Received ${data.length} historical records`);
+        if (Array.isArray(data) && data.length > 0) {
+          // Sort data by timestamp ascending just in case it's not ordered
+          data.sort((a, b) => new Date(a.timestamp) - new Date(b.timestamp));
+
+          // Limit initial data to maxData points
+          sensorData = data.slice(-maxData);
+
+          // Update charts with the most recent historical point as the initial state
+          if (sensorData.length > 0) {
+             updateCharts(sensorData[sensorData.length - 1]);
+          }
+
+        } else {
+          log("No valid historical data received or array is empty.");
+        }
+      })
+      .catch(error => {
+        log(`Error fetching historical data: ${error}`);
+      })
+      .finally(() => {
+         // Set up real-time updates after attempting to load history
+         log("Setting up real-time updates (SSE or Polling)...");
+         setupEventSource(); // Start with SSE
+      });
+
+
+    // Set up controls
+    document.getElementById('testDataBtn').addEventListener('click', function() {
+      log("Generating test data...");
+      fetch('/test-data') // Endpoint to trigger test data generation on the server
+        .then(response => response.json())
+        .then(result => {
+            // The backend should ideally send an SSE 'update' message after generating test data.
+            // If not, we might need to manually call fetch or updateCharts here.
+            log(`Test data request sent. Result: ${JSON.stringify(result)}`);
+            // Assuming the backend SSE notifies of the new data, no direct update needed here.
+        })
+        .catch(error => {
+          log(`Error requesting test data generation: ${error}`);
+        });
+    });
+
+    document.getElementById('toggleDebugBtn').addEventListener('click', function() {
+      const debugPanel = document.getElementById('debug');
+      if (debugPanel.style.display === 'none') {
+        debugPanel.style.display = 'block';
+        this.textContent = 'Hide Debug';
+      } else {
+        debugPanel.style.display = 'none';
+        this.textContent = 'Show Debug';
+      }
+    });
+
+    log("Dashboard initialization complete");
+  </script>
 </body>
 </html>
