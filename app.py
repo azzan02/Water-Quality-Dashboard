@@ -88,8 +88,17 @@ def receive_data():
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f"[{timestamp}] Received: {raw}")
 
+        # Parse the raw data as JSON
+        try:
+            json_data = json.loads(raw)
+            message = json_data.get("message", "")
+        except json.JSONDecodeError:
+            print("Error: Received data is not valid JSON")
+            return jsonify({'status': 'error', 'message': 'Invalid JSON format'}), 400    
+
         # Parse key:value,key:value,...
-        parts = raw.split(',')
+        print("RAW", raw)
+        parts = message.split(",")
         data = {}
         
         for part in parts:
@@ -98,7 +107,9 @@ def receive_data():
                 if len(key_value) == 2:
                     key, value = key_value
                     data[key.strip()] = value.strip()
+                    print(f"Parsed key: {key.strip()}, value: {value.strip()}")  # Debugging
         
+
         data["timestamp"] = timestamp
         
         # Convert numeric values to float where appropriate
@@ -106,8 +117,10 @@ def receive_data():
             if key in data:
                 try:
                     data[key] = float(data[key])
+                    print(f"Converted {key} to float: {data[key]}")
                 except ValueError:
-                    pass  # Keep as string if conversion fails
+                    print(f"Could not convert {key} value '{data[key]}' to float")
+                    data[key] = None  # Keep as string if conversion fails
         
         # Handle GPS data specially
         if 'GPS' in data:
@@ -232,6 +245,7 @@ def add_test_data():
     with data_lock:
         global latest_data
         latest_data = test_data.copy()
+        print(f"Generated test data: {latest_data}")
     
     # Save to database
     db = get_db()

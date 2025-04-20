@@ -5,6 +5,13 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Water Quality Dashboard</title>
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <!-- Leaflet CSS and JS -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+    integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+    crossorigin="" />
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+    integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+    crossorigin=""></script>
   <style>
     body {
       margin: 0;
@@ -31,6 +38,10 @@
       padding: 15px;
       box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
     }
+    /* Special styling for the GPS panel to span full width */
+    .panel.full-width {
+      grid-column: 1 / -1; /* Make it span all columns */
+    }
     .panel h2 {
       font-size: 18px;
       margin: 0 0 10px;
@@ -41,6 +52,13 @@
     #gpsInfo {
       font-size: 16px;
       margin-top: 10px;
+      margin-bottom: 10px;
+    }
+    /* Map styling - increased height for full-width view */
+    #map {
+      height: 320px;
+      width: 100%;
+      border-radius: 8px;
     }
     .status-indicator {
       display: inline-block;
@@ -118,9 +136,11 @@
       <h2>Total Dissolved Solids (ppm)</h2>
       <div class="chart-container"><canvas id="tdsChart"></canvas></div>
     </div>
-    <div class="panel">
+    <!-- GPS panel now spans full width and is placed at the bottom -->
+    <div class="panel full-width">
       <h2>GPS Location</h2>
       <div id="gpsInfo">No GPS Data Available</div>
+      <div id="map"></div>
     </div>
   </div>
 
@@ -137,6 +157,21 @@
     }
 
     log("Dashboard initializing...");
+
+    // Initialize map
+    log("Initializing map...");
+    const map = L.map('map').setView([0, 0], 2); // Default view of the world
+    
+    // Add tile layer (you can change this to a different map style if desired)
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(map);
+
+    // Create marker for the current location (we'll update its position later)
+    let marker = null;
+    // Create a line to track path of the USV
+    let pathLine = L.polyline([], {color: '#00ffff', weight: 3}).addTo(map);
+    let pathCoordinates = [];
 
     // Initialize charts
     function createLineChart(ctx, label, color) {
@@ -189,133 +224,128 @@
     let eventSource = null;
     let pollInterval = null;
 
-    // Update GPS display
+    // Update GPS display and map
     function updateGPSLocation(lat, lon) {
-      document.getElementById('gpsInfo').textContent = `Latitude: ${lat}, Longitude: ${lon}`;
-      log(`Updated GPS: ${lat}, ${lon}`);
+      try {
+        // Parse coordinates as floats to ensure proper formatting
+        const latitude = parseFloat(lat);
+        const longitude = parseFloat(lon);
+        
+        // Update text display
+        document.getElementById('gpsInfo').textContent = `Latitude: ${latitude.toFixed(6)}, Longitude: ${longitude.toFixed(6)}`;
+        
+        // Update map
+        const newLatLng = [latitude, longitude];
+        
+        // Add to path coordinates and update polyline
+        pathCoordinates.push(newLatLng);
+        pathLine.setLatLngs(pathCoordinates);
+        
+        // If it's the first point or we need to create a new marker
+        if (!marker) {
+          marker = L.marker(newLatLng).addTo(map);
+          map.setView(newLatLng, 14); // Zoom to location
+        } else {
+          // Update existing marker position
+          marker.setLatLng(newLatLng);
+          map.panTo(newLatLng); // Pan map to follow the marker
+        }
+        
+        log(`Updated GPS: ${latitude.toFixed(6)}, ${longitude.toFixed(6)}`);
+      } catch (error) {
+        log(`Error updating GPS: ${error.message}`);
+      }
     }
 
-    // ========================================================
-    // START: MODIFIED updateCharts FUNCTION
-    // ========================================================
+    // Updated updateCharts function with fixed pH handling
     function updateCharts(data) {
-         try {
-             if (!data || Object.keys(data).length === 0) {
-                 log("No data to update");
-                 return;
-             }
+      try {
+        if (!data || Object.keys(data).length === 0) {
+          log("No data to update");
+          return;
+        }
 
-             // If we received a successful update, reset failure counter
-             failedAttempts = 0;
+        // If we received a successful update, reset failure counter
+        failedAttempts = 0;
 
-             log(`Updating charts with data: ${JSON.stringify(data)}`);
+        log(`Updating charts with data: ${JSON.stringify(data)}`);
 
-             // --- START FIX ---
-             // Check if pH is nested within the 'message' property
-             if (data.message && typeof data.message === 'string') {
-                try {
-                    // Attempt to parse the inner JSON-like string
-                    const messageContent = data.message.replace(/^"|"$/g, '').replace(/\\"/g, '"'); // Clean up quotes
-                    if (messageContent.startsWith('pH:')) {
-                        const phValue = parseFloat(messageContent.split(':')[1]);
-                        if (!isNaN(phValue)) {
-                            data.pH = phValue; // Add the parsed pH to the main data object
-                            log(`Parsed pH from message: ${data.pH}`);
-                        } else {
-                             log(`Could not parse pH value from message: ${messageContent}`);
-                        }
-                    }
-                 } catch (parseError) {
-                     log(`Error parsing message content: ${parseError}`);
-                 }
-             }
-             // --- END FIX ---
+        // Add new data if it has a timestamp
+        if (data.timestamp) {
+          // Check if we already have this timestamp to prevent duplicates
+          const existingIndex = sensorData.findIndex(item => item.timestamp === data.timestamp);
+          if (existingIndex === -1) {
+            sensorData.push(data);
+            if (sensorData.length > maxData) {
+              sensorData.shift(); // Remove the oldest data point
+            }
+          } else {
+            // Optionally update existing data point if needed
+            // sensorData[existingIndex] = data;
+            log(`Data with timestamp ${data.timestamp} already exists. Skipping add.`);
+          }
+        }
 
+        // Clear existing chart data before repopulating
+        phChart.data.labels = [];
+        phChart.data.datasets[0].data = [];
+        doChart.data.labels = [];
+        doChart.data.datasets[0].data = [];
+        ecChart.data.labels = [];
+        ecChart.data.datasets[0].data = [];
+        tdsChart.data.labels = [];
+        tdsChart.data.datasets[0].data = [];
 
-             // Add new data if it has a timestamp
-             if (data.timestamp) {
-                 // Check if we already have this timestamp to prevent duplicates
-                 const existingIndex = sensorData.findIndex(item => item.timestamp === data.timestamp);
-                 if (existingIndex === -1) {
-                     sensorData.push(data);
-                     if (sensorData.length > maxData) {
-                         sensorData.shift(); // Remove the oldest data point
-                     }
-                 } else {
-                    // Optionally update existing data point if needed
-                    // sensorData[existingIndex] = data;
-                    log(`Data with timestamp ${data.timestamp} already exists. Skipping add.`);
-                 }
-             }
+        log(`Processing ${sensorData.length} data points`);
 
-             // Clear existing chart data before repopulating
-             phChart.data.labels = [];
-             phChart.data.datasets[0].data = [];
-             doChart.data.labels = [];
-             doChart.data.datasets[0].data = [];
-             ecChart.data.labels = [];
-             ecChart.data.datasets[0].data = [];
-             tdsChart.data.labels = [];
-             tdsChart.data.datasets[0].data = [];
+        // Update with all available data
+        sensorData.forEach(item => {
+          // Ensure timestamp exists before trying to format it
+          const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : 'Unknown Time';
+  
+          // Only add valid numeric values
+          if (item.pH !== undefined && item.pH !== null) { // Allow 0 as a valid value
+            phChart.data.labels.push(time);
+            phChart.data.datasets[0].data.push(parseFloat(item.pH));
+          }
 
-             log(`Processing ${sensorData.length} data points`);
+          if (item.DO !== undefined && item.DO !== null) {
+            doChart.data.labels.push(time);
+            doChart.data.datasets[0].data.push(parseFloat(item.DO));
+          }
 
-             // Update with all available data
-             sensorData.forEach(item => {
-                 // Ensure timestamp exists before trying to format it
-                 const time = item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : 'Unknown Time';
+          if (item.EC !== undefined && item.EC !== null) {
+            ecChart.data.labels.push(time);
+            ecChart.data.datasets[0].data.push(parseFloat(item.EC));
+          }
 
-                 // --- MODIFIED pH Check ---
-                 // Now it checks item.pH which might have been added by the fix above
-                 if (item.pH !== undefined && item.pH !== null) {
-                     phChart.data.labels.push(time);
-                     phChart.data.datasets[0].data.push(parseFloat(item.pH));
-                 }
-                 // --- END MODIFIED pH Check ---
+          if (item.TDS !== undefined && item.TDS !== null) {
+            tdsChart.data.labels.push(time);
+            tdsChart.data.datasets[0].data.push(parseFloat(item.TDS));
+          }
+        });
 
+        // Update GPS info if available (use latest data from the main 'data' object received)
+        if (data.Lat && data.Lon) {
+          updateGPSLocation(data.Lat, data.Lon);
+        }
 
-                 if (item.DO !== undefined && item.DO !== null) {
-                     doChart.data.labels.push(time);
-                     doChart.data.datasets[0].data.push(parseFloat(item.DO));
-                 }
+        // Update last updated time (use timestamp from the main 'data' object)
+        if (data.timestamp) {
+          document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
+        }
 
-                 if (item.EC !== undefined && item.EC !== null) {
-                     ecChart.data.labels.push(time);
-                     ecChart.data.datasets[0].data.push(parseFloat(item.EC));
-                 }
+        // Update all charts
+        phChart.update();
+        doChart.update();
+        ecChart.update();
+        tdsChart.update();
 
-                 if (item.TDS !== undefined && item.TDS !== null) {
-                     tdsChart.data.labels.push(time);
-                     tdsChart.data.datasets[0].data.push(parseFloat(item.TDS));
-                 }
-             });
-
-             // Update GPS info if available (use latest data from the main 'data' object received)
-             if (data.Lat && data.Lon) {
-                 updateGPSLocation(data.Lat, data.Lon);
-             }
-
-             // Update last updated time (use timestamp from the main 'data' object)
-             if (data.timestamp) {
-               document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
-             }
-
-
-             // Update all charts
-             phChart.update();
-             doChart.update();
-             ecChart.update();
-             tdsChart.update();
-
-             log("Charts updated successfully");
-         } catch (error) {
-             log(`Error updating charts: ${error.message} \nStack: ${error.stack}`); // Added stack trace for better debugging
-         }
-     }
-    // ========================================================
-    // END: MODIFIED updateCharts FUNCTION
-    // ========================================================
-
+        log("Charts updated successfully");
+      } catch (error) {
+        log(`Error updating charts: ${error.message} \nStack: ${error.stack}`); // Added stack trace for better debugging
+      }
+    }
 
     // Function to set up SSE (Server-Sent Events)
     function setupEventSource() {
@@ -332,9 +362,9 @@
         document.getElementById('connectionStatus').classList.remove('status-disconnected');
         failedAttempts = 0; // Reset counter on successful connection
         if (pollInterval) { // If polling was active, stop it
-             clearInterval(pollInterval);
-             pollInterval = null;
-             log("Stopped polling fallback.");
+          clearInterval(pollInterval);
+          pollInterval = null;
+          log("Stopped polling fallback.");
         }
       };
 
@@ -376,9 +406,9 @@
             .then(data => {
               log(`Received updated data: ${JSON.stringify(data)}`);
               if (Object.keys(data).length > 0) {
-                 updateCharts(data); // Pass the single latest data point object
+                updateCharts(data); // Pass the single latest data point object
               } else {
-                 log("Received empty data object from /lora/latest");
+                log("Received empty data object from /lora/latest");
               }
             })
             .catch(error => {
@@ -386,16 +416,16 @@
               // Don't increment failedAttempts here, SSE connection itself is fine
             });
         } else {
-             log(`Received unexpected SSE message: ${event.data}`);
-             // Optionally try to parse event.data directly if backend sends full JSON
-             try {
-                 const jsonData = JSON.parse(event.data);
-                 if (Object.keys(jsonData).length > 0) {
-                    updateCharts(jsonData);
-                 }
-             } catch(e) {
-                 // Ignore if it's not JSON or the 'update' string
-             }
+          log(`Received unexpected SSE message: ${event.data}`);
+          // Optionally try to parse event.data directly if backend sends full JSON
+          try {
+            const jsonData = JSON.parse(event.data);
+            if (Object.keys(jsonData).length > 0) {
+              updateCharts(jsonData);
+            }
+          } catch(e) {
+            // Ignore if it's not JSON or the 'update' string
+          }
         }
       };
     }
@@ -427,30 +457,38 @@
 
     // Function to fetch data during polling
     function fetchLatestDataPolling() {
-        log("Polling for updates...");
-        fetch('/lora/latest')
-          .then(response => {
-            if (!response.ok) {
-              throw new Error(`HTTP error ${response.status}`);
-            }
-            return response.json();
-          })
-          .then(data => {
-            if (Object.keys(data).length > 0) {
-              updateCharts(data); // Update charts with the latest data
-              document.getElementById('connectionStatus').classList.add('status-connected');
-              document.getElementById('connectionStatus').classList.remove('status-disconnected');
-            } else {
-              log("Polling received empty data object.");
-            }
-          })
-          .catch(error => {
-            log(`Polling error: ${error}`);
-            document.getElementById('connectionStatus').classList.add('status-disconnected');
-            document.getElementById('connectionStatus').classList.remove('status-connected');
-            // Consider stopping polling after too many errors?
-          });
+      log("Polling for updates...");
+      fetch('/lora/latest')
+        .then(response => {
+          if (!response.ok) {
+            throw new Error(`HTTP error ${response.status}`);
+          }
+          return response.json();
+        })
+        .then(data => {
+          if (Object.keys(data).length > 0) {
+            updateCharts(data); // Update charts with the latest data
+            document.getElementById('connectionStatus').classList.add('status-connected');
+            document.getElementById('connectionStatus').classList.remove('status-disconnected');
+          } else {
+            log("Polling received empty data object.");
+          }
+        })
+        .catch(error => {
+          log(`Polling error: ${error}`);
+          document.getElementById('connectionStatus').classList.add('status-disconnected');
+          document.getElementById('connectionStatus').classList.remove('status-connected');
+          // Consider stopping polling after too many errors?
+        });
     }
+
+    // Handle window resize events to update the map
+    window.addEventListener('resize', function() {
+      // Wait a bit for the layout to stabilize
+      setTimeout(function() {
+        map.invalidateSize();
+      }, 100);
+    });
 
     // Load initial historical data
     log("Fetching historical data...");
@@ -470,22 +508,53 @@
           // Limit initial data to maxData points
           sensorData = data.slice(-maxData);
 
+          // Process GPS data from all historical points to create the path
+          pathCoordinates = [];
+          sensorData.forEach(point => {
+            if (point.Lat && point.Lon) {
+              const lat = parseFloat(point.Lat);
+              const lon = parseFloat(point.Lon);
+              if (!isNaN(lat) && !isNaN(lon)) {
+                pathCoordinates.push([lat, lon]);
+              }
+            }
+          });
+
+          // Update path on map if we have coordinates
+          if (pathCoordinates.length > 0) {
+            pathLine.setLatLngs(pathCoordinates);
+            
+            // Set view to the most recent coordinate
+            const lastPoint = pathCoordinates[pathCoordinates.length - 1];
+            map.setView(lastPoint, 14);
+            
+            // Create marker at the latest position
+            if (!marker) {
+              marker = L.marker(lastPoint).addTo(map);
+            } else {
+              marker.setLatLng(lastPoint);
+            }
+          }
+
           // Update charts with the most recent historical point as the initial state
           if (sensorData.length > 0) {
-             updateCharts(sensorData[sensorData.length - 1]);
+            updateCharts(sensorData[sensorData.length - 1]);
           }
 
         } else {
           log("No valid historical data received or array is empty.");
         }
+
+        // Invalid size and refresh map after data is loaded
+        setTimeout(() => map.invalidateSize(), 100);
       })
       .catch(error => {
         log(`Error fetching historical data: ${error}`);
       })
       .finally(() => {
-         // Set up real-time updates after attempting to load history
-         log("Setting up real-time updates (SSE or Polling)...");
-         setupEventSource(); // Start with SSE
+        // Set up real-time updates after attempting to load history
+        log("Setting up real-time updates (SSE or Polling)...");
+        setupEventSource(); // Start with SSE
       });
 
 
@@ -495,10 +564,10 @@
       fetch('/test-data') // Endpoint to trigger test data generation on the server
         .then(response => response.json())
         .then(result => {
-            // The backend should ideally send an SSE 'update' message after generating test data.
-            // If not, we might need to manually call fetch or updateCharts here.
-            log(`Test data request sent. Result: ${JSON.stringify(result)}`);
-            // Assuming the backend SSE notifies of the new data, no direct update needed here.
+          // The backend should ideally send an SSE 'update' message after generating test data.
+          // If not, we might need to manually call fetch or updateCharts here.
+          log(`Test data request sent. Result: ${JSON.stringify(result)}`);
+          // Assuming the backend SSE notifies of the new data, no direct update needed here.
         })
         .catch(error => {
           log(`Error requesting test data generation: ${error}`);
@@ -514,6 +583,9 @@
         debugPanel.style.display = 'none';
         this.textContent = 'Show Debug';
       }
+      
+      // Refresh map when debug panel is toggled (helps with layout issues)
+      setTimeout(() => map.invalidateSize(), 100);
     });
 
     log("Dashboard initialization complete");
