@@ -6,6 +6,9 @@ import queue
 import threading
 import time
 import traceback
+import joblib
+import os
+import numpy as np
 
 app = Flask(__name__, static_folder='static')
 
@@ -17,6 +20,45 @@ DATABASE = 'database.db'
 latest_data = {}
 clients = []
 data_lock = threading.Lock()
+
+# Load the arsenic prediction model
+MODEL_PATH = 'Random_Forest_(Dissolved_Arsenic).joblib'
+arsenic_model = None
+
+def load_model():
+    global arsenic_model
+    try:
+        print(f"Attempting to load model from {os.path.abspath(MODEL_PATH)}")
+        if os.path.exists(MODEL_PATH):
+            arsenic_model = joblib.load(MODEL_PATH)
+            print(f"Successfully loaded arsenic prediction model from {MODEL_PATH}")
+        else:
+            print(f"Warning: Model file {MODEL_PATH} not found at path: {os.path.abspath(MODEL_PATH)}")
+    except Exception as e:
+        print(f"Error loading model: {str(e)}")
+        print(traceback.format_exc())  # More detailed error info
+
+# Load the model when app starts
+load_model()
+
+# Function to predict arsenic concentration
+def predict_arsenic(tds, ec, temp):
+    try:
+        if arsenic_model is None:
+            print("Warning: No model loaded, cannot predict arsenic")
+            return None
+            
+        # Prepare input features as expected by the model
+        features = np.array([[tds, ec, temp]])
+        
+        # Make prediction
+        prediction = arsenic_model.predict(features)[0]
+        
+        # Return the prediction rounded to 3 decimal places
+        return round(float(prediction), 3)
+    except Exception as e:
+        print(f"Error predicting arsenic: {str(e)}")
+        return None
 
 # ---------- Database Helpers ----------
 def get_db():
@@ -35,6 +77,7 @@ def close_connection(exception):
 def init_db():
     with app.app_context():
         db = get_db()
+        # Create table if it doesn't exist
         db.execute('''CREATE TABLE IF NOT EXISTS sensor_data (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             timestamp TEXT,
@@ -42,9 +85,30 @@ def init_db():
             EC REAL,
             TDS REAL,
             DO REAL,
+            Temp REAL,
+            Arsenic REAL,
             Lat TEXT,
             Lon TEXT
         )''')
+        
+        # Check if Temp column exists, if not add it
+        try:
+            db.execute('ALTER TABLE sensor_data ADD COLUMN Temp REAL')
+            print("Added Temp column to existing database")
+        except sqlite3.OperationalError as e:
+            # Column might already exist, which will cause an error
+            if "duplicate column name" not in str(e):
+                print(f"Note: {e}")
+        
+        # Check if Arsenic column exists, if not add it
+        try:
+            db.execute('ALTER TABLE sensor_data ADD COLUMN Arsenic REAL')
+            print("Added Arsenic column to existing database")
+        except sqlite3.OperationalError as e:
+            # Column might already exist, which will cause an error
+            if "duplicate column name" not in str(e):
+                print(f"Note: {e}")
+            
         db.commit()
         print("Database initialized")
 
@@ -113,7 +177,7 @@ def receive_data():
         data["timestamp"] = timestamp
         
         # Convert numeric values to float where appropriate
-        for key in ['pH', 'EC', 'TDS', 'DO']:
+        for key in ['pH', 'EC', 'TDS', 'DO', 'Temp']:
             if key in data:
                 try:
                     data[key] = float(data[key])
@@ -135,6 +199,15 @@ def receive_data():
                     pass
             # Remove the raw GPS field to avoid confusion
             del data['GPS']
+        
+        # Predict arsenic concentration if we have the required parameters
+        if all(k in data and data[k] is not None for k in ['TDS', 'EC', 'Temp']):
+            arsenic_prediction = predict_arsenic(data['TDS'], data['EC'], data['Temp'])
+            if arsenic_prediction is not None:
+                data['Arsenic'] = arsenic_prediction
+                print(f"Predicted arsenic concentration: {arsenic_prediction}")
+        else:
+            print("Missing one or more parameters required for arsenic prediction")
                 
         with data_lock:
             latest_data = data.copy()
@@ -142,13 +215,15 @@ def receive_data():
 
         # Save to database
         db = get_db()
-        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Lat, Lon)
-                      VALUES (?, ?, ?, ?, ?, ?, ?)''', (
+        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                           timestamp,
                           data.get('pH'),
                           data.get('EC'),
                           data.get('TDS'),
                           data.get('DO'),
+                          data.get('Temp'),
+                          data.get('Arsenic'),
                           data.get('Lat'),
                           data.get('Lon')
                       ))
@@ -161,7 +236,14 @@ def receive_data():
         return jsonify({'status': 'success'}), 200
     except Exception as e:
         print(f"Error processing data: {str(e)}")
-        print(traceback.format_exc())  # Print detailed error info including stack trace
+        print(traceback.format_exc())  # Print detailed error info
+        
+        # If it's a database schema error related to Temp column, provide hint
+        if "no column named" in str(e):
+            hint = "Please recreate your database or update schema to include all required columns"
+            print(hint)
+            return jsonify({'status': 'error', 'message': str(e), 'hint': hint}), 500
+            
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/lora/latest')
@@ -233,6 +315,7 @@ def add_test_data():
         'EC': round(random.uniform(0.5, 1.5), 2),
         'TDS': round(random.uniform(0.1, 0.5), 2),
         'DO': round(random.uniform(-2.0, 2.0), 2),
+        'Temp': round(random.uniform(15.0, 30.0), 2),
         'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
     }
     
@@ -240,6 +323,10 @@ def add_test_data():
     if random.choice([True, False]):
         test_data['Lat'] = str(round(random.uniform(30, 45), 6))
         test_data['Lon'] = str(round(random.uniform(-120, -70), 6))
+    
+    # Predict arsenic concentration based on the test data
+    if arsenic_model is not None:
+        test_data['Arsenic'] = predict_arsenic(test_data['TDS'], test_data['EC'], test_data['Temp'])
     
     # Save to latest_data and database
     with data_lock:
@@ -249,13 +336,15 @@ def add_test_data():
     
     # Save to database
     db = get_db()
-    db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Lat, Lon)
-                  VALUES (?, ?, ?, ?, ?, ?, ?)''', (
+    db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                       test_data.get('timestamp'),
                       test_data.get('pH'),
                       test_data.get('EC'),
                       test_data.get('TDS'),
                       test_data.get('DO'),
+                      test_data.get('Temp'),
+                      test_data.get('Arsenic'),
                       test_data.get('Lat'),
                       test_data.get('Lon')
                   ))

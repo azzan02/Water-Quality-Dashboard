@@ -110,6 +110,31 @@
     .controls button:hover {
       background-color: #0a4d7c;
     }
+    /* Arsenic level indicator styling */
+    .arsenic-indicator {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 10px 0;
+    }
+    .risk-level {
+      padding: 4px 8px;
+      border-radius: 4px;
+      font-weight: bold;
+      font-size: 14px;
+    }
+    .risk-low {
+      background-color: #4caf50; /* Green */
+    }
+    .risk-medium {
+      background-color: #ff9800; /* Orange */
+    }
+    .risk-high {
+      background-color: #f44336; /* Red */
+    }
+    .risk-veryhigh {
+      background-color: #9c27b0; /* Purple */
+    }
   </style>
 </head>
 <body>
@@ -135,6 +160,18 @@
     <div class="panel">
       <h2>Total Dissolved Solids (ppm)</h2>
       <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Water Temperature (°C)</h2>
+      <div class="chart-container"><canvas id="tempChart"></canvas></div>
+    </div>
+    <div class="panel">
+      <h2>Arsenic (ppb)</h2>
+      <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
+      <div class="arsenic-indicator">
+        <div>Current Level: <span id="currentArsenic">N/A</span> ppb</div>
+        <div>Risk Level: <span id="riskLevel" class="risk-level">Unknown</span></div>
+      </div>
     </div>
     <!-- GPS panel now spans full width and is placed at the bottom -->
     <div class="panel full-width">
@@ -214,7 +251,44 @@
     const doChart = createLineChart(document.getElementById('doChart'), 'DO', '#cc33cc'); // Magenta
     const ecChart = createLineChart(document.getElementById('ecChart'), 'Conductivity', '#00bfff'); // DeepSkyBlue
     const tdsChart = createLineChart(document.getElementById('tdsChart'), 'TDS', '#66cc66'); // Light Green
+    const tempChart = createLineChart(document.getElementById('tempChart'), 'Temperature', '#ff6347'); // Tomato
+    const arsenicChart = createLineChart(document.getElementById('arsenicChart'), 'Arsenic', '#e91e63'); // Pink
     log("Charts created");
+
+    // Function to update risk level indicator based on arsenic concentration
+    function updateArsenicRiskLevel(arsenicValue) {
+      const currentArsenicEl = document.getElementById('currentArsenic');
+      const riskLevelEl = document.getElementById('riskLevel');
+      
+      // Update the current value
+      currentArsenicEl.textContent = arsenicValue !== null && arsenicValue !== undefined ? 
+                                    arsenicValue.toFixed(3) : 'N/A';
+      
+      // Clear previous risk classes
+      riskLevelEl.classList.remove('risk-low', 'risk-medium', 'risk-high', 'risk-veryhigh');
+      
+      // Set risk level based on WHO standards for arsenic in drinking water
+      if (arsenicValue === null || arsenicValue === undefined) {
+        riskLevelEl.textContent = 'Unknown';
+        riskLevelEl.style.backgroundColor = '#888'; // Grey for unknown
+      } 
+      else if (arsenicValue <= 10) { // 10 ppb is WHO recommended limit
+        riskLevelEl.textContent = 'Low';
+        riskLevelEl.classList.add('risk-low');
+      }
+      else if (arsenicValue <= 50) { // 50 ppb is limit in many developing countries
+        riskLevelEl.textContent = 'Medium';
+        riskLevelEl.classList.add('risk-medium');
+      }
+      else if (arsenicValue <= 100) {
+        riskLevelEl.textContent = 'High';
+        riskLevelEl.classList.add('risk-high');
+      }
+      else {
+        riskLevelEl.textContent = 'Very High';
+        riskLevelEl.classList.add('risk-veryhigh');
+      }
+    }
 
     const maxData = 20; // Max number of data points to show on charts
     let sensorData = []; // Array to hold historical data
@@ -257,7 +331,7 @@
       }
     }
 
-    // Updated updateCharts function with fixed pH handling
+    // Updated updateCharts function with arsenic handling
     function updateCharts(data) {
       try {
         if (!data || Object.keys(data).length === 0) {
@@ -295,6 +369,10 @@
         ecChart.data.datasets[0].data = [];
         tdsChart.data.labels = [];
         tdsChart.data.datasets[0].data = [];
+        tempChart.data.labels = [];
+        tempChart.data.datasets[0].data = [];
+        arsenicChart.data.labels = [];
+        arsenicChart.data.datasets[0].data = [];
 
         log(`Processing ${sensorData.length} data points`);
 
@@ -323,8 +401,18 @@
             tdsChart.data.labels.push(time);
             tdsChart.data.datasets[0].data.push(parseFloat(item.TDS));
           }
+          
+          if (item.Temp !== undefined && item.Temp !== null) {
+            tempChart.data.labels.push(time);
+            tempChart.data.datasets[0].data.push(parseFloat(item.Temp));
+          }
+          
+          if (item.Arsenic !== undefined && item.Arsenic !== null) {
+            arsenicChart.data.labels.push(time);
+            arsenicChart.data.datasets[0].data.push(parseFloat(item.Arsenic));
+          }
         });
-
+        
         // Update GPS info if available (use latest data from the main 'data' object received)
         if (data.Lat && data.Lon) {
           updateGPSLocation(data.Lat, data.Lon);
@@ -334,12 +422,19 @@
         if (data.timestamp) {
           document.getElementById('lastUpdated').textContent = `Last updated: ${new Date(data.timestamp).toLocaleString()}`;
         }
+        
+        // Update arsenic risk level indicator (use latest data)
+        if (data.Arsenic !== undefined && data.Arsenic !== null) {
+          updateArsenicRiskLevel(parseFloat(data.Arsenic));
+        }
 
         // Update all charts
         phChart.update();
         doChart.update();
         ecChart.update();
         tdsChart.update();
+        tempChart.update();
+        arsenicChart.update();
 
         log("Charts updated successfully");
       } catch (error) {
@@ -507,6 +602,12 @@
 
           // Limit initial data to maxData points
           sensorData = data.slice(-maxData);
+          
+          // Update arsenic risk level with the most recent reading
+          const latestReading = sensorData[sensorData.length - 1];
+          if (latestReading && latestReading.Arsenic !== undefined && latestReading.Arsenic !== null) {
+            updateArsenicRiskLevel(parseFloat(latestReading.Arsenic));
+          }
 
           // Process GPS data from all historical points to create the path
           pathCoordinates = [];
@@ -589,6 +690,11 @@
     });
 
     log("Dashboard initialization complete");
+    
+    // Initialize the arsenic risk level indicator
+    updateArsenicRiskLevel(null);
   </script>
 </body>
 </html>
+             
+      
