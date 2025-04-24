@@ -1,0 +1,141 @@
+body {
+  margin: 0;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: #052847;
+  color: white;
+}
+
+h1 {
+  text-align: center;
+  padding: 20px;
+  margin: 0;
+  font-size: 28px;
+  color: white;
+}
+
+.dashboard {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 20px;
+  padding: 20px;
+}
+
+.panel {
+  background-color: #09385c;
+  border-radius: 12px;
+  padding: 15px;
+  box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
+}
+
+.panel.full-width {
+  grid-column: 1 / -1;
+}
+
+.panel h2 {
+  font-size: 18px;
+  margin: 0 0 10px;
+}
+
+.chart-container {
+  height: 240px;
+}
+
+#gpsInfo {
+  font-size: 16px;
+  margin-top: 10px;
+  margin-bottom: 10px;
+}
+
+#map {
+  height: 320px;
+  width: 100%;
+  border-radius: 8px;
+}
+
+.status-indicator {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  margin-left: 10px;
+  background-color: #888;
+}
+
+.status-connected {
+  background-color: #4caf50;
+}
+
+.status-disconnected {
+  background-color: #f44336;
+}
+
+.last-updated {
+  font-size: 14px;
+  color: #ccc;
+  text-align: center;
+  margin-top: -10px;
+  padding-bottom: 10px;
+}
+
+#debug {
+  background-color: rgba(0, 0, 0, 0.5);
+  color: #00ff00;
+  font-family: monospace;
+  font-size: 12px;
+  padding: 10px;
+  margin: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  border-radius: 5px;
+}
+
+.controls {
+  display: flex;
+  justify-content: center;
+  margin-top: -10px;
+  margin-bottom: 10px;
+}
+
+.controls button {
+  background-color: #09385c;
+  color: white;
+  border: none;
+  padding: 5px 15px;
+  margin: 0 5px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+.controls button:hover {
+  background-color: #0a4d7c;
+}
+
+.arsenic-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
+.risk-level {
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: bold;
+  font-size: 14px;
+}
+
+.risk-low {
+  background-color: #4caf50;
+}
+
+.risk-medium {
+  background-color: #ff9800;
+}
+
+.risk-high {
+  background-color: #f44336;
+}
+
+.risk-veryhigh {
+  background-color: #9c27b0;
+}
