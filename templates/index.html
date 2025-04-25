@@ -12,6 +12,71 @@
     integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
     crossorigin=""></script>
   <link rel="stylesheet" href="/static/styles.css">
+  <style>
+    .period-controls {
+      margin: 15px 0;
+      padding: 15px;
+      background-color: #f8f9fa;
+      border-radius: 5px;
+      border: 1px solid #dee2e6;
+    }
+    .period-controls form {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .form-group {
+      flex: 1;
+      min-width: 200px;
+    }
+    .form-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .form-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ced4da;
+      border-radius: 4px;
+    }
+    .active-period {
+      background-color: #d4edda;
+      border-color: #c3e6cb;
+      color: #155724;
+      padding: 10px;
+      border-radius: 5px;
+      margin-bottom: 15px;
+      display: none;
+    }
+    .btn-start {
+      background-color: #28a745;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-stop {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    .btn-view {
+      background-color: #007bff;
+      color: white;
+      border: none;
+      padding: 8px 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      text-decoration: none;
+      display: inline-block;
+    }
+  </style>
 </head>
 <body>
   <h1>BlueShield USV <span class="status-indicator" id="connectionStatus"></span></h1>
@@ -19,7 +84,30 @@
   <div class="controls">
     <button id="testDataBtn">Generate Test Data</button>
     <button id="toggleDebugBtn">Toggle Debug</button>
+    <a href="/periods" class="btn-view">View All Periods</a>
   </div>
+
+  <!-- Period Data Collection Controls -->
+  <div class="period-controls">
+    <div id="activePeriodInfo" class="active-period">
+      <strong>Active Collection:</strong> <span id="activePeriodName"></span>
+      <span id="activePeriodTime"></span>
+    </div>
+    
+    <form id="periodForm">
+      <div class="form-group">
+        <label for="periodName">Period Name:</label>
+        <input type="text" id="periodName" placeholder="Enter a name for this collection period">
+      </div>
+      <div class="form-group">
+        <label for="periodNotes">Notes:</label>
+        <input type="text" id="periodNotes" placeholder="Optional notes">
+      </div>
+      <button type="button" id="startPeriodBtn" class="btn-start">Start Collection</button>
+      <button type="button" id="stopPeriodBtn" class="btn-stop" style="display:none;">Stop Collection</button>
+    </form>
+  </div>
+
   <div class="dashboard">
     <div class="panel">
       <h2>Water pH</h2>
@@ -59,6 +147,148 @@
   <div id="debug" style="display: none;"></div>
 
   <script src="/static/main.js"></script>
+  <script>
+    // Period Collection Controls
+    document.addEventListener('DOMContentLoaded', function() {
+      const startPeriodBtn = document.getElementById('startPeriodBtn');
+      const stopPeriodBtn = document.getElementById('stopPeriodBtn');
+      const periodForm = document.getElementById('periodForm');
+      const periodNameInput = document.getElementById('periodName');
+      const periodNotesInput = document.getElementById('periodNotes');
+      const activePeriodInfo = document.getElementById('activePeriodInfo');
+      const activePeriodName = document.getElementById('activePeriodName');
+      const activePeriodTime = document.getElementById('activePeriodTime');
+      
+      // Check if there's an active period
+      checkActivePeriod();
+      
+      // Event listener for starting a period
+      startPeriodBtn.addEventListener('click', function() {
+        const name = periodNameInput.value || `Collection ${new Date().toLocaleString()}`;
+        const notes = periodNotesInput.value || '';
+        
+        fetch('/start', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            name: name,
+            notes: notes
+          })
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success') {
+            setActivePeriodUI(data.period_id, name, data.start_time);
+            
+            // Disable form inputs
+            periodNameInput.disabled = true;
+            periodNotesInput.disabled = true;
+            
+            // Hide start button, show stop button
+            startPeriodBtn.style.display = 'none';
+            stopPeriodBtn.style.display = 'inline-block';
+            
+            // Show active period info
+            activePeriodInfo.style.display = 'block';
+            activePeriodName.textContent = name;
+            activePeriodTime.textContent = ` (Started: ${data.start_time})`;
+          } else {
+            alert('Error starting collection period: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while starting the collection period.');
+        });
+      });
+      
+      // Event listener for stopping a period
+      stopPeriodBtn.addEventListener('click', function() {
+        fetch('/stop', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          }
+        })
+        .then(response => response.json())
+        .then(data => {
+          if (data.status === 'success') {
+            resetPeriodUI();
+            
+            // Optionally redirect to the period data page
+            if (confirm('Collection period stopped. Would you like to view the data now?')) {
+              window.location.href = `/period/${data.period_id}`;
+            }
+          } else {
+            alert('Error stopping collection period: ' + data.message);
+          }
+        })
+        .catch(error => {
+          console.error('Error:', error);
+          alert('An error occurred while stopping the collection period.');
+        });
+      });
+      
+      // Function to check if there's an active period
+      function checkActivePeriod() {
+        fetch('/period-status')
+          .then(response => response.json())
+          .then(data => {
+            if (data.active) {
+              setActivePeriodUI(data.period_id, data.name, data.start_time);
+            }
+          })
+          .catch(error => {
+            console.error('Error checking active period:', error);
+          });
+      }
+      
+      // Set UI for active period
+      function setActivePeriodUI(periodId, name, startTime) {
+        // Update form state
+        periodNameInput.value = name;
+        periodNameInput.disabled = true;
+        periodNotesInput.disabled = true;
+        
+        // Update buttons
+        startPeriodBtn.style.display = 'none';
+        stopPeriodBtn.style.display = 'inline-block';
+        
+        // Show active period info
+        activePeriodInfo.style.display = 'block';
+        activePeriodName.textContent = name;
+        activePeriodTime.textContent = ` (Started: ${startTime})`;
+      }
+      
+      // Reset UI when no active period
+      function resetPeriodUI() {
+        // Reset form state
+        periodNameInput.disabled = false;
+        periodNotesInput.disabled = false;
+        periodNameInput.value = '';
+        periodNotesInput.value = '';
+        
+        // Reset buttons
+        startPeriodBtn.style.display = 'inline-block';
+        stopPeriodBtn.style.display = 'none';
+        
+        // Hide active period info
+        activePeriodInfo.style.display = 'none';
+      }
+      
+      // Listen for SSE events related to periods
+      const eventSource = new EventSource('/stream');
+      
+      eventSource.addEventListener('message', function(event) {
+        if (event.data === 'period_started') {
+          checkActivePeriod();
+        } else if (event.data === 'period_stopped') {
+          resetPeriodUI();
+        }
+      });
+    });
+  </script>
 </body>
 </html>
-

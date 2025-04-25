@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, render_template, Response, g
+from flask import Flask, request, jsonify, render_template, Response, g, redirect, url_for, send_file
 import sqlite3
 import datetime
 import json
@@ -9,6 +9,8 @@ import traceback
 import joblib
 import os
 import numpy as np
+import io
+import csv
 
 app = Flask(__name__, static_folder='static')
 
@@ -20,6 +22,10 @@ DATABASE = 'database.db'
 latest_data = {}
 clients = []
 data_lock = threading.Lock()
+
+# Variable to track active data collection period
+current_period_id = None
+period_lock = threading.Lock()
 
 # Load the arsenic prediction model
 MODEL_PATH = 'Random_Forest_(Dissolved_Arsenic).joblib'
@@ -88,8 +94,27 @@ def init_db():
             Temp REAL,
             Arsenic REAL,
             Lat TEXT,
-            Lon TEXT
+            Lon TEXT,
+            period_id INTEGER
         )''')
+        
+        # Create periods table for tracking data collection periods
+        db.execute('''CREATE TABLE IF NOT EXISTS data_periods (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT,
+            start_time TEXT,
+            end_time TEXT,
+            notes TEXT
+        )''')
+        
+        # Check if period_id column exists in sensor_data, if not add it
+        try:
+            db.execute('ALTER TABLE sensor_data ADD COLUMN period_id INTEGER')
+            print("Added period_id column to existing database")
+        except sqlite3.OperationalError as e:
+            # Column might already exist, which will cause an error
+            if "duplicate column name" not in str(e):
+                print(f"Note: {e}")
         
         # Check if Temp column exists, if not add it
         try:
@@ -126,17 +151,51 @@ def get_recent_data(limit=20):
     rows = cursor.fetchall()
     return rows[::-1]  # Reverse to get chronological order
 
+def get_periods():
+    db = get_db()
+    db.row_factory = dict_factory
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM data_periods ORDER BY id DESC')
+    return cursor.fetchall()
+
+def get_period_data(period_id):
+    db = get_db()
+    db.row_factory = dict_factory
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM sensor_data WHERE period_id = ? ORDER BY id ASC', (period_id,))
+    return cursor.fetchall()
+
+def get_period_info(period_id):
+    db = get_db()
+    db.row_factory = dict_factory
+    cursor = db.cursor()
+    cursor.execute('SELECT * FROM data_periods WHERE id = ?', (period_id,))
+    return cursor.fetchone()
+
 # ---------- SSE Broadcaster ----------
-def notify_clients():
-    print(f"Notifying {len(clients)} clients")
+def notify_clients(event_type="update"):
+    print(f"Notifying {len(clients)} clients with event: {event_type}")
     for client_queue in clients[:]:  # Copy the list to avoid modification during iteration
         try:
-            client_queue.put("data: update\n\n")
-            print("Notification sent to client")
+            client_queue.put(f"data: {event_type}\n\n")
+            print(f"Notification '{event_type}' sent to client")
         except Exception as e:
             print(f"Error notifying client: {str(e)}")
             if client_queue in clients:
                 clients.remove(client_queue)
+
+# Setup heartbeat to keep connections alive
+def heartbeat():
+    while True:
+        time.sleep(15)  # Send a heartbeat every 15 seconds
+        print(f"Sending heartbeat to {len(clients)} clients")
+        for client_queue in clients[:]:
+            try:
+                client_queue.put(": heartbeat\n\n")
+            except:
+                if client_queue in clients:
+                    clients.remove(client_queue)
+                    print("Removed disconnected client during heartbeat")
 
 # ---------- Routes ----------
 @app.route('/')
@@ -146,7 +205,7 @@ def dashboard():
 
 @app.route('/lora', methods=['POST'])
 def receive_data():
-    global latest_data
+    global latest_data, current_period_id
     try:
         raw = request.get_data(as_text=True)
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -213,10 +272,14 @@ def receive_data():
             latest_data = data.copy()
             print(f"Updated latest_data: {latest_data}")
 
+        # Get current period_id if we're in a data collection period
+        with period_lock:
+            period_id = current_period_id
+
         # Save to database
         db = get_db()
-        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
+        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon, period_id)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                           timestamp,
                           data.get('pH'),
                           data.get('EC'),
@@ -225,7 +288,8 @@ def receive_data():
                           data.get('Temp'),
                           data.get('Arsenic'),
                           data.get('Lat'),
-                          data.get('Lon')
+                          data.get('Lon'),
+                          period_id
                       ))
         db.commit()
         print("Data saved to database")
@@ -290,18 +354,182 @@ def stream():
     
     return Response(event_stream(), mimetype="text/event-stream")
 
-# Setup heartbeat to keep connections alive
-def heartbeat():
-    while True:
-        time.sleep(15)  # Send a heartbeat every 15 seconds
-        print(f"Sending heartbeat to {len(clients)} clients")
-        for client_queue in clients[:]:
-            try:
-                client_queue.put(": heartbeat\n\n")
-            except:
-                if client_queue in clients:
-                    clients.remove(client_queue)
-                    print("Removed disconnected client during heartbeat")
+# ---------- New Period Data Routes ----------
+@app.route('/start', methods=['POST'])
+def start_period():
+    global current_period_id
+    
+    try:
+        data = request.get_json() or {}
+        name = data.get('name', f'Period {datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")}')
+        notes = data.get('notes', '')
+        
+        with period_lock:
+            # Check if we're already in a period
+            if current_period_id is not None:
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'A data collection period is already in progress', 
+                    'period_id': current_period_id
+                }), 400
+            
+            # Create new period
+            db = get_db()
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            cursor = db.execute(
+                'INSERT INTO data_periods (name, start_time, notes) VALUES (?, ?, ?)',
+                (name, timestamp, notes)
+            )
+            db.commit()
+            
+            # Get the ID of the inserted period
+            current_period_id = cursor.lastrowid
+            
+        print(f"Started new data collection period: {current_period_id} - {name}")
+        notify_clients("period_started")
+        
+        return jsonify({
+            'status': 'success', 
+            'message': 'Data collection period started', 
+            'period_id': current_period_id,
+            'name': name,
+            'start_time': timestamp
+        })
+    
+    except Exception as e:
+        print(f"Error starting data period: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/stop', methods=['POST'])
+def stop_period():
+    global current_period_id
+    
+    try:
+        with period_lock:
+            # Check if we're actually in a period
+            if current_period_id is None:
+                return jsonify({
+                    'status': 'error', 
+                    'message': 'No data collection period is currently active'
+                }), 400
+            
+            # Update the period record to mark it as ended
+            db = get_db()
+            timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+            db.execute(
+                'UPDATE data_periods SET end_time = ? WHERE id = ?',
+                (timestamp, current_period_id)
+            )
+            db.commit()
+            
+            period_id = current_period_id
+            current_period_id = None
+            
+        print(f"Stopped data collection period: {period_id}")
+        notify_clients("period_stopped")
+        
+        return jsonify({
+            'status': 'success', 
+            'message': 'Data collection period stopped', 
+            'period_id': period_id,
+            'end_time': timestamp
+        })
+    
+    except Exception as e:
+        print(f"Error stopping data period: {str(e)}")
+        print(traceback.format_exc())
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@app.route('/period-status')
+def period_status():
+    global current_period_id
+    
+    with period_lock:
+        if current_period_id is not None:
+            db = get_db()
+            db.row_factory = dict_factory
+            cursor = db.cursor()
+            cursor.execute('SELECT * FROM data_periods WHERE id = ?', (current_period_id,))
+            period = cursor.fetchone()
+            
+            return jsonify({
+                'active': True,
+                'period_id': current_period_id,
+                'name': period['name'],
+                'start_time': period['start_time']
+            })
+        else:
+            return jsonify({'active': False})
+
+@app.route('/periods')
+def list_periods():
+    try:
+        periods = get_periods()
+        return render_template('periods.html', periods=periods)
+    except Exception as e:
+        print(f"Error listing periods: {str(e)}")
+        print(traceback.format_exc())
+        return f"Error: {str(e)}", 500
+
+@app.route('/period/<int:period_id>')
+def view_period(period_id):
+    try:
+        period_info = get_period_info(period_id)
+        if not period_info:
+            return "Period not found", 404
+        
+        data = get_period_data(period_id)
+        
+        # Check if any data point has GPS coordinates
+        has_gps_data = any(item.get('Lat') and item.get('Lon') for item in data)
+        
+        return render_template('period_data.html', 
+                              period=period_info, 
+                              data=data, 
+                              has_gps_data=has_gps_data)
+    except Exception as e:
+        print(f"Error viewing period: {str(e)}")
+        print(traceback.format_exc())
+        return f"Error: {str(e)}", 500
+
+@app.route('/period/<int:period_id>/download')
+def download_period_data(period_id):
+    try:
+        format_type = request.args.get('format', 'csv')
+        period_info = get_period_info(period_id)
+        if not period_info:
+            return "Period not found", 404
+        
+        data = get_period_data(period_id)
+        
+        if format_type == 'csv':
+            # Create in-memory CSV file
+            output = io.StringIO()
+            if data and len(data) > 0:
+                fieldnames = data[0].keys()
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                for row in data:
+                    writer.writerow(row)
+                
+            # Convert to bytes for sending
+            output_bytes = io.BytesIO(output.getvalue().encode('utf-8'))
+            output.close()
+            
+            return send_file(
+                output_bytes,
+                as_attachment=True,
+                download_name=f"period_{period_id}_{period_info['name']}.csv",
+                mimetype='text/csv'
+            )
+        else:
+            return f"Unsupported format: {format_type}", 400
+            
+    except Exception as e:
+        print(f"Error downloading period data: {str(e)}")
+        print(traceback.format_exc())
+        return f"Error: {str(e)}", 500
 
 # Add a test data endpoint for debugging
 @app.route('/test-data')
@@ -328,6 +556,10 @@ def add_test_data():
     if arsenic_model is not None:
         test_data['Arsenic'] = predict_arsenic(test_data['TDS'], test_data['EC'], test_data['Temp'])
     
+    # Get current period_id if we're in a data collection period
+    with period_lock:
+        period_id = current_period_id
+    
     # Save to latest_data and database
     with data_lock:
         global latest_data
@@ -336,8 +568,8 @@ def add_test_data():
     
     # Save to database
     db = get_db()
-    db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
+    db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon, period_id)
+                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                       test_data.get('timestamp'),
                       test_data.get('pH'),
                       test_data.get('EC'),
@@ -346,7 +578,8 @@ def add_test_data():
                       test_data.get('Temp'),
                       test_data.get('Arsenic'),
                       test_data.get('Lat'),
-                      test_data.get('Lon')
+                      test_data.get('Lon'),
+                      period_id
                   ))
     db.commit()
     

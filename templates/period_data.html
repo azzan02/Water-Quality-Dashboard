@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Period Data: {{ period.name }}</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" 
+      integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" 
+      crossorigin="" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" 
+      integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" 
+      crossorigin=""></script>
+    <link rel="stylesheet" href="/static/styles.css">
+    <style>
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+        
+        .mb-4 {
+            margin-bottom: 1.5rem;
+        }
+        
+        .d-flex {
+            display: flex;
+        }
+        
+        .justify-content-between {
+            justify-content: space-between;
+        }
+        
+        .align-items-center {
+            align-items: center;
+        }
+        
+        .me-2 {
+            margin-right: 0.5rem;
+        }
+        
+        .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -15px;
+        }
+        
+        .col-md-6 {
+            flex: 0 0 50%;
+            padding: 0 15px;
+            box-sizing: border-box;
+        }
+        
+        .col-12 {
+            flex: 0 0 100%;
+            padding: 0 15px;
+            box-sizing: border-box;
+        }
+        
+        @media (max-width: 768px) {
+            .col-md-6 {
+                flex: 0 0 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header class="mb-4">
+            <div class="d-flex justify-content-between align-items-center">
+                <h1>{{ period.name }}</h1>
+                <div>
+                    <a href="/periods" class="btn-view me-2">Back to Periods</a>
+                    <a href="/" class="btn-view">Back to Dashboard</a>
+                </div>
+            </div>
+        </header>
+
+        <div class="period-info">
+            <div class="row">
+                <div class="col-md-6">
+                    <p><strong>Start Time:</strong> {{ period.start_time }}</p>
+                    {% if period.end_time %}
+                        <p><strong>End Time:</strong> {{ period.end_time }}</p>
+                    {% else %}
+                        <p><strong>Status:</strong> <span class="badge bg-primary">Active</span></p>
+                    {% endif %}
+                </div>
+                <div class="col-md-6">
+                    {% if period.notes %}
+                        <p><strong>Notes:</strong> {{ period.notes }}</p>
+                    {% endif %}
+                    <p><strong>Number of Data Points:</strong> {{ data|length }}</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="controls">
+            <a href="/period/{{ period.id }}/download?format=csv" class="btn-view">
+                Download as CSV
+            </a>
+        </div>
+
+        <div id="no-data-message" style="display: none;" class="panel full-width">
+            <p style="text-align: center; padding: 20px;">No data available for this period.</p>
+        </div>
+
+        <h2 style="margin: 20px 0 10px 20px;">Data Visualization</h2>
+        <div class="dashboard">
+            <div class="panel">
+                <h2>Water pH</h2>
+                <div class="chart-container"><canvas id="phChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2>Dissolved Oxygen (%)</h2>
+                <div class="chart-container"><canvas id="doChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2>Conductivity (uS/cm)</h2>
+                <div class="chart-container"><canvas id="ecChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2>Total Dissolved Solids (ppm)</h2>
+                <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2>Water Temperature (°C)</h2>
+                <div class="chart-container"><canvas id="tempChart"></canvas></div>
+            </div>
+            <div class="panel">
+                <h2>Arsenic (ppb)</h2>
+                <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
+            </div>
+            
+            {% if has_gps_data %}
+            <div class="panel full-width">
+                <h2>GPS Map</h2>
+                <div id="map"></div>
+            </div>
+            {% endif %}
+        </div>
+
+        <h2 style="margin: 20px 0 10px 20px;">Data Table</h2>
+        <div class="panel full-width">
+            <div class="table-container">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Timestamp</th>
+                            <th>pH</th>
+                            <th>EC (uS/cm)</th>
+                            <th>TDS (ppm)</th>
+                            <th>DO (%)</th>
+                            <th>Temp (°C)</th>
+                            <th>Arsenic (ppb)</th>
+                            {% if has_gps_data %}
+                            <th>GPS</th>
+                            {% endif %}
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for item in data %}
+                        <tr>
+                            <td>{{ item.timestamp }}</td>
+                            <td>{{ item.pH|default('N/A') }}</td>
+                            <td>{{ item.EC|default('N/A') }}</td>
+                            <td>{{ item.TDS|default('N/A') }}</td>
+                            <td>{{ item.DO|default('N/A') }}</td>
+                            <td>{{ item.Temp|default('N/A') }}</td>
+                            <td>{{ item.Arsenic|default('N/A') }}</td>
+                            {% if has_gps_data %}
+                            <td>
+                                {% if item.Lat and item.Lon %}
+                                {{ item.Lat }}, {{ item.Lon }}
+                                {% else %}
+                                N/A
+                                {% endif %}
+                            </td>
+                            {% endif %}
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+<!-- Store data in a separate script tag to avoid syntax issues -->
+<script id="period-data" type="application/json">
+{{ data|tojson }}
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Parse data from the script tag
+        const dataElement = document.getElementById('period-data');
+        const data = JSON.parse(dataElement.textContent);
+        
+        // Check if we have any data
+        if (data.length === 0) {
+            document.getElementById('no-data-message').style.display = 'block';
+            document.querySelector('.dashboard').style.display = 'none';
+            document.querySelector('.table-container').innerHTML = '<p>No data available for this period.</p>';
+            return;
+        }
+        
+        try {
+            // Prepare data for charts - properly handling null/undefined values
+            const timestamps = data.map(item => {
+                const date = new Date(item.timestamp);
+                return date.toLocaleTimeString();
+            });
+            
+            const phValues = data.map(item => item.pH !== undefined && item.pH !== null ? parseFloat(item.pH) : null);
+            const ecValues = data.map(item => item.EC !== undefined && item.EC !== null ? parseFloat(item.EC) : null);
+            const tdsValues = data.map(item => item.TDS !== undefined && item.TDS !== null ? parseFloat(item.TDS) : null);
+            const doValues = data.map(item => item.DO !== undefined && item.DO !== null ? parseFloat(item.DO) : null);
+            const tempValues = data.map(item => item.Temp !== undefined && item.Temp !== null ? parseFloat(item.Temp) : null);
+            const arsenicValues = data.map(item => item.Arsenic !== undefined && item.Arsenic !== null ? parseFloat(item.Arsenic) : null);
+            
+            // Create charts with error handling
+            try {
+                createChart('phChart', 'Water pH', timestamps, phValues, 'rgb(75, 192, 192)');
+                createChart('ecChart', 'Conductivity (uS/cm)', timestamps, ecValues, 'rgb(255, 159, 64)');
+                createChart('tdsChart', 'Total Dissolved Solids (ppm)', timestamps, tdsValues, 'rgb(153, 102, 255)');
+                createChart('doChart', 'Dissolved Oxygen (%)', timestamps, doValues, 'rgb(54, 162, 235)');
+                createChart('tempChart', 'Water Temperature (°C)', timestamps, tempValues, 'rgb(255, 99, 132)');
+                createChart('arsenicChart', 'Arsenic (ppb)', timestamps, arsenicValues, 'rgb(255, 206, 86)');
+            } catch (chartError) {
+                console.error('Error creating charts:', chartError);
+            }
+            
+            // Check if we have GPS data and create map if needed
+            const hasGpsData = data.some(item => item.Lat && item.Lon);
+            if (hasGpsData) {
+                try {
+                    createMap(data);
+                } catch (mapError) {
+                    console.error('Error creating map:', mapError);
+                    document.querySelector('#map').innerHTML = '<p>Error loading map. Please try refreshing the page.</p>';
+                }
+            }
+        } catch (error) {
+            console.error('Error processing data:', error);
+            document.querySelector('.dashboard').innerHTML = '<div class="panel full-width"><p>Error processing data: ' + error.message + '</p></div>';
+        }
+    });
+    
+    // Function to create charts
+    function createChart(canvasId, label, labels, values, color) {
+        const ctx = document.getElementById(canvasId).getContext('2d');
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: label,
+                    data: values,
+                    backgroundColor: color,
+                    borderColor: color,
+                    borderWidth: 2,
+                    tension: 0.1,
+                    fill: false,
+                    pointRadius: 3
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    x: {
+                        ticks: {
+                            maxRotation: 45,
+                            minRotation: 45,
+                            color: '#ccc'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    },
+                    y: {
+                        beginAtZero: false,
+                        ticks: {
+                            color: '#ccc'
+                        },
+                        grid: {
+                            color: 'rgba(255, 255, 255, 0.1)'
+                        }
+                    }
+                },
+                plugins: {
+                    legend: {
+                        labels: {
+                            color: '#fff'
+                        }
+                    }
+                }
+            }
+        });
+    }
+    
+    // Function to create map with data points
+    function createMap(data) {
+        // Filter data points with valid GPS coordinates
+        const gpsPoints = data.filter(item => item.Lat && item.Lon)
+            .map(item => ({
+                lat: parseFloat(item.Lat),
+                lon: parseFloat(item.Lon),
+                timestamp: item.timestamp,
+                pH: item.pH,
+                EC: item.EC,
+                TDS: item.TDS,
+                DO: item.DO,
+                Temp: item.Temp,
+                Arsenic: item.Arsenic
+            }));
+        
+        if (gpsPoints.length === 0) return;
+        
+        // Create map centered on the first GPS point
+        const map = L.map('map').setView([gpsPoints[0].lat, gpsPoints[0].lon], 13);
+        
+        // Add OpenStreetMap tile layer
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+        
+        // Add markers for each GPS point
+        gpsPoints.forEach(point => {
+            const popupContent = `
+                <strong>Time:</strong> ${point.timestamp}<br>
+                <strong>pH:</strong> ${point.pH || 'N/A'}<br>
+                <strong>EC:</strong> ${point.EC || 'N/A'} uS/cm<br>
+                <strong>TDS:</strong> ${point.TDS || 'N/A'} ppm<br>
+                <strong>DO:</strong> ${point.DO || 'N/A'} %<br>
+                <strong>Temp:</strong> ${point.Temp || 'N/A'} °C<br>
+                <strong>Arsenic:</strong> ${point.Arsenic || 'N/A'} ppb<br>
+                <strong>Coordinates:</strong> ${point.lat}, ${point.lon}
+            `;
+            
+            L.marker([point.lat, point.lon])
+                .addTo(map)
+                .bindPopup(popupContent);
+        });
+        
+        // Create a line connecting all points in chronological order
+        const polyline = L.polyline(gpsPoints.map(point => [point.lat, point.lon]), {
+            color: 'blue',
+            weight: 3,
+            opacity: 0.7
+        }).addTo(map);
+        
+        // Fix for map bounds issue
+        if (gpsPoints.length > 1) {
+            map.fitBounds(polyline.getBounds());
+        } else {
+            // If only one point, just center on it with appropriate zoom
+            map.setView([gpsPoints[0].lat, gpsPoints[0].lon], 14);
+        }
+        
+        // Fix map display issues by invalidating size after rendering
+        setTimeout(() => {
+            map.invalidateSize();
+        }, 100);
+    }
+</script>
+</body>
+</html>
