@@ -4,77 +4,53 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Data Collection Periods</title>
-    <link rel="stylesheet" href="/static/styles.css">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #052847;
+            color: #fff;
+        }
         .container {
             max-width: 1200px;
             margin: 0 auto;
             padding: 0 20px;
         }
-        
-        .mb-4 {
-            margin-bottom: 1.5rem;
-        }
-        
-        .d-flex {
-            display: flex;
-        }
-        
-        .justify-content-between {
-            justify-content: space-between;
-        }
-        
-        .align-items-center {
-            align-items: center;
-        }
-        
-        .row {
-            display: flex;
-            flex-wrap: wrap;
-            margin: 0 -15px;
-        }
-        
-        .col-md-12 {
-            flex: 0 0 100%;
-            padding: 0 15px;
-            box-sizing: border-box;
-        }
-        
         .card {
             background-color: #09385c;
             border-radius: 12px;
             margin-bottom: 15px;
             box-shadow: 0 0 10px rgba(0, 0, 0, 0.4);
         }
-        
         .card-body {
             padding: 15px;
         }
-        
-        .card-title {
-            margin-top: 0;
-            margin-bottom: 10px;
-            font-size: 18px;
+        .btn-primary {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
         }
-        
-        .card-subtitle {
-            margin-top: -5px;
-            margin-bottom: 10px;
-            font-size: 14px;
-            color: #ccc;
+        .btn-success {
+            background-color: #28a745;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
         }
-        
-        .card-text {
-            margin-bottom: 15px;
+        .btn-danger {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
         }
-        
-        .form-label {
-            display: block;
-            margin-bottom: 5px;
-            font-size: 14px;
-            color: #ccc;
-        }
-        
         .form-control {
             width: 100%;
             padding: 8px;
@@ -84,258 +60,66 @@
             color: white;
             box-sizing: border-box;
         }
-        
-        .g-3 {
-            gap: 1rem;
+        .form-label {
+            color: #ccc;
+            margin-bottom: 5px;
+            display: block;
         }
-        
-        .alert {
-            padding: 15px;
-            border-radius: 8px;
-            margin-bottom: 15px;
+        .badge {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
         }
-        
+        .bg-primary {
+            background-color: #2196f3;
+        }
+        .bg-success {
+            background-color: #28a745;
+        }
+        .text-muted {
+            color: #ccc !important;
+        }
         .alert-info {
             background-color: rgba(33, 150, 243, 0.2);
             border: 1px solid #2196f3;
+            padding: 15px;
+            border-radius: 8px;
         }
-        
-        .mt-2 {
-            margin-top: 0.5rem;
-        }
-        
-        .d-none {
-            display: none;
-        }
-        
         .period-card {
             border-left: 5px solid #28a745;
         }
-        
         .period-card.active {
             border-left-color: #2196f3;
         }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <header class="mb-4">
-            <div class="d-flex justify-content-between align-items-center">
-                <h1>Data Collection Periods</h1>
-                <a href="/" class="btn-view">Back to Dashboard</a>
-            </div>
-            <p style="text-align: center; color: #ccc; margin-top: -10px;">View and manage your saved data collection periods</p>
-        </header>
-
-        <div class="row">
-            <div class="col-md-12">
-                <div class="card mb-4">
-                    <div class="card-body">
-                        <h2 class="card-title">Start a New Collection Period</h2>
-                        <form id="start-period-form" class="period-controls g-3">
-                            <div class="form-group">
-                                <label for="period-name" class="form-label">Period Name</label>
-                                <input type="text" class="form-control" id="period-name" placeholder="Enter a descriptive name">
-                            </div>
-                            <div class="form-group">
-                                <label for="period-notes" class="form-label">Notes</label>
-                                <input type="text" class="form-control" id="period-notes" placeholder="Optional notes">
-                            </div>
-                            <div style="margin-top: 10px;">
-                                <button type="submit" class="btn-start" id="start-button">
-                                    Start Collection
-                                </button>
-                                <button type="button" class="btn-stop d-none" id="stop-button">
-                                    Stop Collection
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-
-                <h2 style="margin-left: 15px;">Your Collection Periods</h2>
-                
-                <div id="periods-container">
-                    {% if periods %}
-                        {% for period in periods %}
-                            <div class="card period-card {% if not period.end_time %}active{% endif %}">
-                                <div class="card-body">
-                                    <div class="d-flex justify-content-between">
-                                        <h3 class="card-title">{{ period.name }}</h3>
-                                        <span class="badge {% if not period.end_time %}bg-primary{% else %}bg-success{% endif %}">
-                                            {% if not period.end_time %}Active{% else %}Completed{% endif %}
-                                        </span>
-                                    </div>
-                                    <h4 class="card-subtitle">
-                                        Started: {{ period.start_time }}
-                                        {% if period.end_time %}
-                                            | Ended: {{ period.end_time }}
-                                        {% endif %}
-                                    </h4>
-                                    
-                                    {% if period.notes %}
-                                        <p class="card-text">{{ period.notes }}</p>
-                                    {% endif %}
-                                    
-                                    <div class="mt-2">
-                                        <a href="/period/{{ period.id }}" class="btn-view">
-                                            View Data
-                                        </a>
-                                        <a href="/period/{{ period.id }}/download?format=csv" class="btn-view" style="margin-left: 10px;">
-                                            Download CSV
-                                        </a>
-                                    </div>
-                                </div>
-                            </div>
-                        {% endfor %}
-                    {% else %}
-                        <div class="alert alert-info">
-                            No data collection periods found. Start your first one using the form above.
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // Check if a collection period is active
-            checkPeriodStatus();
-            
-            // Handle form submission
-            const startForm = document.getElementById('start-period-form');
-            const startButton = document.getElementById('start-button');
-            const stopButton = document.getElementById('stop-button');
-            
-            startForm.addEventListener('submit', function(e) {
-                e.preventDefault();
-                
-                const name = document.getElementById('period-name').value || 
-                    `Period ${new Date().toLocaleString()}`;
-                const notes = document.getElementById('period-notes').value || '';
-                
-                fetch('/start', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({ name, notes })
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        updateUIForActiveCollection();
-                        // Optionally reload to show the new period
-                        window.location.reload();
-                    } else {
-                        alert(`Error: ${data.message}`);
-                    }
-                })
-                .catch(error => {
-                    console.error('Error starting collection period:', error);
-                    alert('An error occurred while starting the collection period.');
-                });
-            });
-            
-            // Handle stop button click
-            if (stopButton) {
-                stopButton.addEventListener('click', function() {
-                    fetch('/stop', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json'
-                        }
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success') {
-                            updateUIForStoppedCollection();
-                            // Reload to update the list
-                            window.location.reload();
-                        } else {
-                            alert(`Error: ${data.message}`);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error stopping collection period:', error);
-                        alert('An error occurred while stopping the collection period.');
-                    });
-                });
-            }
-            
-            // Function to check if a period is currently active
-            function checkPeriodStatus() {
-                fetch('/period-status')
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.active) {
-                            updateUIForActiveCollection(data);
-                        }
-                    })
-                    .catch(error => {
-                        console.error('Error checking period status:', error);
-                    });
-            }
-            
-            // Update UI for active collection
-            function updateUIForActiveCollection(data) {
-                startButton.classList.add('d-none');
-                stopButton.classList.remove('d-none');
-                document.getElementById('period-name').disabled = true;
-                document.getElementById('period-notes').disabled = true;
-                
-                if (data && data.name) {
-                    document.getElementById('period-name').value = data.name;
-                }
-            }
-            
-            // Update UI for stopped collection
-            function updateUIForStoppedCollection() {
-                startButton.classList.remove('d-none');
-                stopButton.classList.add('d-none');
-                document.getElementById('period-name').disabled = false;
-                document.getElementById('period-notes').disabled = false;
-                document.getElementById('period-name').value = '';
-                document.getElementById('period-notes').value = '';
-            }
-            
-            // Listen for SSE events
-            const eventSource = new EventSource('/stream');
-            
-            eventSource.addEventListener('message', function(event) {
-                const data = event.data;
-                if (data === 'period_started') {
-                    checkPeriodStatus();
-                } else if (data === 'period_stopped') {
-                    window.location.reload();
-                }
-            });
-        });
-    </script>
-</body>
-</html><!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Data Collection Periods</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bootstrap/5.3.0/css/bootstrap.min.css">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
-    <style>
-        body {
-            padding-top: 2rem;
-            padding-bottom: 2rem;
+        .btn-view {
+            background-color: #2196f3;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 5px;
         }
-        .period-card {
-            margin-bottom: 1rem;
-            border-left: 5px solid #28a745;
+        .btn-view:hover {
+            background-color: #1976d2;
+            color: white;
+            text-decoration: none;
         }
-        .period-card.active {
-            border-left-color: #007bff;
+        .btn-outline {
+            background-color: transparent;
+            color: white;
+            border: 1px solid white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 5px;
         }
-        .period-card.incomplete {
-            border-left-color: #ffc107;
+        .btn-outline:hover {
+            background-color: rgba(255, 255, 255, 0.1);
         }
     </style>
 </head>
@@ -344,7 +128,7 @@
         <header class="mb-4">
             <div class="d-flex justify-content-between align-items-center">
                 <h1>Data Collection Periods</h1>
-                <a href="/" class="btn btn-outline-primary">Back to Dashboard</a>
+                <a href="/" class="btn-outline">Back to Dashboard</a>
             </div>
             <p class="lead">View and manage your saved data collection periods</p>
         </header>
@@ -400,10 +184,10 @@
                                     {% endif %}
                                     
                                     <div class="mt-2">
-                                        <a href="/period/{{ period.id }}" class="btn btn-primary">
+                                        <a href="/period/{{ period.id }}" class="btn-view">
                                             <i class="bi bi-graph-up"></i> View Data
                                         </a>
-                                        <a href="/period/{{ period.id }}/download?format=csv" class="btn btn-outline-secondary">
+                                        <a href="/period/{{ period.id }}/download?format=csv" class="btn-outline">
                                             <i class="bi bi-download"></i> Download CSV
                                         </a>
                                     </div>

@@ -16,35 +16,41 @@
     .period-controls {
       margin: 15px 0;
       padding: 15px;
-      background-color: #f8f9fa;
+      background-color: #09385c;
       border-radius: 5px;
-      border: 1px solid #dee2e6;
+      border: 1px solid #0a4d7c;
+      color: white;
     }
     .period-controls form {
       display: flex;
       flex-wrap: wrap;
       gap: 10px;
       align-items: flex-end;
+      justify-content: space-between;
     }
     .form-group {
-      flex: 1;
-      min-width: 200px;
+      flex: 0 1 calc(33% - 10px);
+      min-width: 150px;
     }
     .form-group label {
       display: block;
       margin-bottom: 5px;
       font-weight: bold;
+      color: #ccc;
     }
     .form-group input {
       width: 100%;
-      padding: 8px;
-      border: 1px solid #ced4da;
+      padding: 6px;
+      border: 1px solid #0a4d7c;
       border-radius: 4px;
+      background-color: #052847;
+      color: white;
+      font-size: 14px;
     }
     .active-period {
-      background-color: #d4edda;
-      border-color: #c3e6cb;
-      color: #155724;
+      background-color: rgba(40, 167, 69, 0.2);
+      border-color: #28a745;
+      color: white;
       padding: 10px;
       border-radius: 5px;
       margin-bottom: 15px;
@@ -66,6 +72,10 @@
       border-radius: 4px;
       cursor: pointer;
     }
+    .controls {
+      margin-top: 20px;
+      margin-bottom: 20px;
+    }
     .btn-view {
       background-color: #007bff;
       color: white;
@@ -82,8 +92,6 @@
   <h1>BlueShield USV <span class="status-indicator" id="connectionStatus"></span></h1>
   <div class="last-updated" id="lastUpdated">Last updated: Never</div>
   <div class="controls">
-    <button id="testDataBtn">Generate Test Data</button>
-    <button id="toggleDebugBtn">Toggle Debug</button>
     <a href="/periods" class="btn-view">View All Periods</a>
   </div>
 

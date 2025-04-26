@@ -62,6 +62,21 @@
                 flex: 0 0 100%;
             }
         }
+        
+        .btn-outline {
+            background-color: transparent;
+            color: white;
+            border: 1px solid white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+            margin: 0 5px;
+        }
+        .btn-outline:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
     </style>
 </head>
 <body>
@@ -70,8 +85,8 @@
             <div class="d-flex justify-content-between align-items-center">
                 <h1>{{ period.name }}</h1>
                 <div>
-                    <a href="/periods" class="btn-view me-2">Back to Periods</a>
-                    <a href="/" class="btn-view">Back to Dashboard</a>
+                    <a href="/periods" class="btn-outline me-2">Back to Periods</a>
+                    <a href="/" class="btn-outline">Back to Dashboard</a>
                 </div>
             </div>
         </header>
@@ -96,7 +111,7 @@
         </div>
 
         <div class="controls">
-            <a href="/period/{{ period.id }}/download?format=csv" class="btn-view">
+            <a href="/period/{{ period.id }}/download?format=csv" class="btn-outline">
                 Download as CSV
             </a>
         </div>
