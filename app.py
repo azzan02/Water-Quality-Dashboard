@@ -36,6 +36,10 @@ arsenic_model = None
 BARIUM_MODEL_PATH = 'BARIUM_DISSOLVED_µG_L_model.pkl'
 barium_model = None
 
+# Load the barium prediction model
+LITHIUM_MODEL_PATH = 'LITHIUM_DISSOLVED_µG_L_model.pkl'
+lithium_model = None
+
 def load_models():
     global arsenic_model, barium_model
     try:
@@ -52,6 +56,14 @@ def load_models():
             print(f"Successfully loaded barium prediction model from {BARIUM_MODEL_PATH}")
         else:
             print(f"Warning: Barium model file {BARIUM_MODEL_PATH} not found at path: {os.path.abspath(BARIUM_MODEL_PATH)}")
+
+        print(f"Attempting to load barium model from {os.path.abspath(BARIUM_MODEL_PATH)}")
+        if os.path.exists(LITHIUM_MODEL_PATH):
+            lithium_model = joblib.load(LITHIUM_MODEL_PATH)
+            print(f"Successfully loaded lithium prediction model from {LITHIUM_MODEL_PATH}")
+        else:
+            print(f"Warning: Lithium model file {LITHIUM_MODEL_PATH} not found at path: {os.path.abspath(LITHIUM_MODEL_PATH)}")
+
     except Exception as e:
         print(f"Error loading models: {str(e)}")
         print(traceback.format_exc())  # More detailed error info
@@ -100,6 +112,29 @@ def predict_barium(ph, tds, ec, do, temp):
     except Exception as e:
         print(f"Error predicting barium: {str(e)}")
         return None
+    
+# Function to predict barium concentration
+def predict_lithium(ph, tds, ec, do, temp):
+    try:
+        if lithium_model is None:
+            print("Warning: No lithium model loaded, cannot predict barium")
+            return None
+            
+        # Create DataFrame with named features
+        features = pd.DataFrame([[ph, tds, ec, do, temp]], 
+                              columns=['ELECTRICAL CONDUCTIVITY (µS/CM)',
+                                     'PH MERGED (PH)', 
+                                     'TEMPERATURE WATER MERGED (DEG C)',
+                                     'OXYGEN DISSOLVED MERGED (MG/L)',
+                                     'TOTAL DISSOLVED SOLIDS MERGED (MG/L)'])
+        
+        prediction = lithium_model.predict(features)[0]
+        
+        # Return the prediction rounded to 3 decimal places
+        return round(float(prediction), 3)
+    except Exception as e:
+        print(f"Error predicting lithium: {str(e)}")
+        return None    
 
 # ---------- Database Helpers ----------
 def get_db():
@@ -129,6 +164,7 @@ def init_db():
             Temp REAL,
             Arsenic REAL,
             Barium REAL,
+            Lithium REAL,       
             Lat TEXT,
             Lon TEXT,
             period_id INTEGER
@@ -177,6 +213,14 @@ def init_db():
         except sqlite3.OperationalError as e:
             if "duplicate column name" not in str(e):
                 print(f"Note: {e}")
+
+        # Check if Lithium column exists, if not add it
+        try:
+            db.execute('ALTER TABLE sensor_data ADD COLUMN Lithium REAL')
+            print("Added Lithium column to existing database")
+        except sqlite3.OperationalError as e:
+            if "duplicate column name" not in str(e):
+                print(f"Note: {e}")        
             
         db.commit()
         print("Database initialized")
@@ -327,6 +371,21 @@ def receive_data():
         else:
             print("Missing one or more parameters required for barium prediction")
                 
+        # Predict lithium concentration if we have all required parameters
+        if all(k in data and data[k] is not None for k in ['pH', 'TDS', 'EC', 'DO', 'Temp']):
+            lithium_prediction = predict_lithium(
+                data['pH'],
+                data['TDS'], 
+                data['EC'],
+                data['DO'],
+                data['Temp']
+            )
+            if lithium_prediction is not None:
+                data['Lithium'] = lithium_prediction
+                print(f"Predicted lithium concentration: {lithium_prediction}")
+        else:
+            print("Missing one or more parameters required for lithium prediction")
+
         with data_lock:
             latest_data = data.copy()
             print(f"Updated latest_data: {latest_data}")
@@ -337,7 +396,7 @@ def receive_data():
 
         # Save to database
         db = get_db()
-        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Barium, Lat, Lon, period_id)
+        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Barium, Lithium, Lat, Lon, period_id)
                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                           timestamp,
                           data.get('pH'),
@@ -347,6 +406,7 @@ def receive_data():
                           data.get('Temp'),
                           data.get('Arsenic'),
                           data.get('Barium'),
+                          data.get('Lithium'),
                           data.get('Lat'),
                           data.get('Lon'),
                           period_id

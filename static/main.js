@@ -135,6 +135,7 @@ const tdsChart = createLineChart(document.getElementById('tdsChart'), 'TDS', '#6
 const tempChart = createLineChart(document.getElementById('tempChart'), 'Temperature', '#ff6347'); // Tomato
 const arsenicChart = createLineChart(document.getElementById('arsenicChart'), 'Arsenic', '#e91e63'); // Pink
 const bariumChart = createLineChart(document.getElementById('bariumChart'), 'Barium', '#ff6b6b'); // Coral red
+const lithiumChart = createLineChart(document.getElementById('lithiumChart'), 'Lithium', '#0000FF'); // Blue
 log("Charts created");
 
 // Function to update risk level indicator based on arsenic concentration
@@ -203,6 +204,46 @@ function updateBariumRiskLevel(bariumValue) {
     riskLevelEl.classList.add('risk-medium');
   }
   else if (bariumValue <= 2000) { // EPA limit
+    riskLevelEl.textContent = 'High';
+    riskLevelEl.classList.add('risk-high');
+  }
+  else {
+    riskLevelEl.textContent = 'Very High';
+    riskLevelEl.classList.add('risk-veryhigh');
+  }
+}
+
+// Function to update barium risk level indicator
+function updateLithiumRiskLevel(lithiumValue) {
+  const currentLithiumEl = document.getElementById('currentLithium');
+  const riskLevelEl = document.getElementById('lithiumRiskLevel');
+  
+  if (!currentLithiumEl || !riskLevelEl) {
+    return; // Elements not found, possibly on a different page
+  }
+  
+  // Update the current value
+  currentLithiumEl.textContent = lithiumValue !== null && lithiumValue !== undefined ? 
+                              lithiumValue.toFixed(3) : 'N/A';
+  
+  // Clear previous risk classes
+  riskLevelEl.classList.remove('risk-low', 'risk-medium', 'risk-high', 'risk-veryhigh');
+  
+  // Set risk level based on EPA standards for barium in drinking water
+  // EPA Maximum Contaminant Level (MCL) for Barium is 2000 ppb (2 mg/L)
+  if (lithiumValue === null || lithiumValue === undefined) {
+    riskLevelEl.textContent = 'Unknown';
+    riskLevelEl.style.backgroundColor = '#888'; // Grey for unknown
+  } 
+  else if (lithiumValue <= 7) { // Very conservative limit
+    riskLevelEl.textContent = 'Low';
+    riskLevelEl.classList.add('risk-low');
+  }
+  else if (lithiumValue <= 15) { // Half the EPA limit
+    riskLevelEl.textContent = 'Medium';
+    riskLevelEl.classList.add('risk-medium');
+  }
+  else if (lithiumValue <= 40) { // EPA limit
     riskLevelEl.textContent = 'High';
     riskLevelEl.classList.add('risk-high');
   }
@@ -297,6 +338,8 @@ function updateCharts(data) {
     arsenicChart.data.datasets[0].data = [];
     bariumChart.data.labels = []; 
     bariumChart.data.datasets[0].data = [];
+    lithiumChart.data.labels = []; 
+    lithiumChart.data.datasets[0].data = [];
 
     log(`Processing ${sensorData.length} data points`);
 
@@ -341,6 +384,12 @@ function updateCharts(data) {
         bariumChart.data.labels.push(time);
         bariumChart.data.datasets[0].data.push(parseFloat(item.Barium));
       }
+
+      // Add Lithium data processing
+      if (item.Lithium !== undefined && item.Lithium !== null) {
+        lithiumChart.data.labels.push(time);
+        lithiumChart.data.datasets[0].data.push(parseFloat(item.Lithium));
+      }
     });
     
     // Update GPS info if available (use latest data from the main 'data' object received)
@@ -361,6 +410,11 @@ function updateCharts(data) {
     // Update barium risk level indicator (use latest data)
     if (data.Barium !== undefined && data.Barium !== null) {
       updateBariumRiskLevel(parseFloat(data.Barium));
+    }
+
+    // Update lithium risk level indicator (use latest data)
+    if (data.Lithium !== undefined && data.Lithium !== null) {
+      updateLithiumRiskLevel(parseFloat(data.Lithium));
     }
 
     // Update all charts
@@ -550,6 +604,11 @@ fetch('/lora/history') // Endpoint for historical data
         updateBariumRiskLevel(parseFloat(latestReading.Barium));
       }
 
+      // Update lithium risk level with the most recent reading
+      if (latestReading && latestReading.Lithium !== undefined && latestReading.Lithium !== null) {
+        updateLithiumRiskLevel(parseFloat(latestReading.Lithium));
+      }
+
       // Process GPS data from all historical points to create the path
       pathCoordinates = [];
       sensorData.forEach(point => {
@@ -637,3 +696,6 @@ updateArsenicRiskLevel(null);
 
 // Initialize the barium risk level indicator
 updateBariumRiskLevel(null);
+
+// Initialize the barium risk level indicator
+updateLithiumRiskLevel(null);

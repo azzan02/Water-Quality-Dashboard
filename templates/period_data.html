@@ -226,7 +226,11 @@
                     <h2>Barium (ppb)</h2>
                     <div class="chart-container"><canvas id="bariumChart"></canvas></div>
                 </div>
-            </div>
+                <div class="panel">
+                    <h2>Lithium (ppb)</h2>
+                    <div class="chart-container"><canvas id="lithiumChart"></canvas></div>
+                </div>
+            </div> 
 
             {% if has_gps_data %}
             <div class="panel full-width">
@@ -250,6 +254,7 @@
                             <th>Temp (°C)</th>
                             <th>Arsenic (ppb)</th>
                             <th>Barium (ppb)</th>
+                            <th>Lithium (ppb)</th>
                             {% if has_gps_data %}
                             <th>GPS</th>
                             {% endif %}
@@ -266,6 +271,7 @@
                             <td>{{ item.Temp|default('N/A') }}</td>
                             <td>{{ item.Arsenic|default('N/A') }}</td>
                             <td>{{ item.Barium|default('N/A') }}</td>
+                            <td>{{ item.Lithium|default('N/A') }}</td>
                             {% if has_gps_data %}
                             <td>
                                 {% if item.Lat and item.Lon %}
@@ -316,6 +322,7 @@
             const tempValues = data.map(item => item.Temp !== undefined && item.Temp !== null ? parseFloat(item.Temp) : null);
             const arsenicValues = data.map(item => item.Arsenic !== undefined && item.Arsenic !== null ? parseFloat(item.Arsenic) : null);
             const bariumValues = data.map(item => item.Barium !== undefined && item.Barium !== null ? parseFloat(item.Barium) : null);
+            const lithiumValues = data.map(item => item.Lithium !== undefined && item.Lithium !== null ? parseFloat(item.Lithium) : null);
             
             // Create charts with error handling
             try {
@@ -326,6 +333,7 @@
                 createChart('tempChart', 'Water Temperature (°C)', timestamps, tempValues, 'rgb(255, 99, 132)');
                 createChart('arsenicChart', 'Arsenic (ppb)', timestamps, arsenicValues, 'rgb(255, 206, 86)');
                 createChart('bariumChart', 'Barium (ppb)', timestamps, bariumValues, 'rgb(255, 107, 107)');
+                createChart('bariumChart', 'Barium (ppb)', timestamps, bariumValues, 'rgb(0, 0, 255)');
             } catch (chartError) {
                 console.error('Error creating charts:', chartError);
             }
@@ -467,7 +475,8 @@
                 DO: item.DO,
                 Temp: item.Temp,
                 Arsenic: item.Arsenic,
-                Barium: item.Barium
+                Barium: item.Barium,
+                Lithium: item.Lithium
             }));
         
         if (gpsPoints.length === 0) return;
@@ -491,6 +500,7 @@
                 <strong>Temp:</strong> ${point.Temp || 'N/A'} °C<br>
                 <strong>Arsenic:</strong> ${point.Arsenic || 'N/A'} ppb<br>
                 <strong>Barium:</strong> ${point.Barium || 'N/A'} ppb<br>
+                <strong>Lithium:</strong> ${point.Lithium || 'N/A'} ppb<br>
                 <strong>Coordinates:</strong> ${point.lat}, ${point.lon}
             `;
             
