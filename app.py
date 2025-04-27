@@ -11,6 +11,7 @@ import os
 import numpy as np
 import io
 import csv
+import pandas as pd
 
 app = Flask(__name__, static_folder='static')
 
@@ -62,16 +63,16 @@ load_models()
 def predict_arsenic(tds, ec, temp):
     try:
         if arsenic_model is None:
-            print("Warning: No model loaded, cannot predict arsenic")
+            print("Warning: No arsenic model loaded, cannot predict arsenic")
             return None
             
-        # Prepare input features as expected by the model
-        features = np.array([[tds, ec, temp]])
+        # Create DataFrame with correct feature names matching training data
+        features = pd.DataFrame([[tds, ec, temp]], 
+                              columns=['TOTAL DISSOLVED SOLIDS MERGED (MG/L)',
+                                     'ELECTRICAL CONDUCTIVITY (µS/CM)',
+                                     'TEMPERATURE WATER MERGED (DEG C)'])
         
-        # Make prediction
         prediction = arsenic_model.predict(features)[0]
-        
-        # Return the prediction rounded to 3 decimal places
         return round(float(prediction), 3)
     except Exception as e:
         print(f"Error predicting arsenic: {str(e)}")
@@ -84,10 +85,14 @@ def predict_barium(ph, tds, ec, do, temp):
             print("Warning: No barium model loaded, cannot predict barium")
             return None
             
-        # Prepare input features as expected by the model
-        features = np.array([[ph, tds, ec, do, temp]])
+        # Create DataFrame with named features
+        features = pd.DataFrame([[ph, tds, ec, do, temp]], 
+                              columns=['ELECTRICAL CONDUCTIVITY (µS/CM)',
+                                     'PH MERGED (PH)', 
+                                     'TEMPERATURE WATER MERGED (DEG C)',
+                                     'OXYGEN DISSOLVED MERGED (MG/L)',
+                                     'TOTAL DISSOLVED SOLIDS MERGED (MG/L)'])
         
-        # Make prediction
         prediction = barium_model.predict(features)[0]
         
         # Return the prediction rounded to 3 decimal places
@@ -307,9 +312,15 @@ def receive_data():
         else:
             print("Missing one or more parameters required for arsenic prediction")
                 
-        # Predict barium concentration if we have the required parameters
-        if all(k in data and data[k] is not None for k in ['EC', 'pH', 'Temp', 'DO', 'TDs']):
-            barium_prediction = predict_barium(data['EC'], data['pH'], data['Temp'], data['DO'], data['TDS'])
+        # Predict barium concentration if we have all required parameters
+        if all(k in data and data[k] is not None for k in ['pH', 'TDS', 'EC', 'DO', 'Temp']):
+            barium_prediction = predict_barium(
+                data['pH'],
+                data['TDS'], 
+                data['EC'],
+                data['DO'],
+                data['Temp']
+            )
             if barium_prediction is not None:
                 data['Barium'] = barium_prediction
                 print(f"Predicted barium concentration: {barium_prediction}")
