@@ -25,6 +25,10 @@ let pathLine = L.polyline([], {color: '#00ffff', weight: 3}).addTo(map);
 let pathCoordinates = [];
 
 // Initialize charts
+// Update the createLineChart function in main.js file to have more visible grids:
+
+// Update the createLineChart function in main.js to include full grid
+
 function createLineChart(ctx, label, color) {
   return new Chart(ctx, {
     type: 'line',
@@ -36,26 +40,89 @@ function createLineChart(ctx, label, color) {
         borderColor: color,
         backgroundColor: color + '33', // Semi-transparent fill
         fill: true,
-        tension: 0.3
+        tension: 0.3,
+        borderWidth: 3,
+        pointRadius: 3,
+        pointHoverRadius: 5
       }]
     },
     options: {
       scales: {
         x: {
-          ticks: { color: 'white' }
+          ticks: { 
+            color: 'white',
+            font: {
+              size: 11
+            }
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.25)',
+            tickLength: 8,
+            lineWidth: 1,
+            display: true,
+            drawBorder: true,
+            drawOnChartArea: true,
+            drawTicks: true
+          },
+          border: {
+            color: 'rgba(255, 255, 255, 0.5)',
+            width: 1
+          }
         },
         y: {
           beginAtZero: false,
-          ticks: { color: 'white' }
+          ticks: { 
+            color: 'white',
+            font: {
+              size: 11
+            },
+            padding: 8
+          },
+          grid: {
+            color: 'rgba(255, 255, 255, 0.25)',
+            tickLength: 8,
+            lineWidth: 1,
+            display: true,
+            drawBorder: true,
+            drawOnChartArea: true,
+            drawTicks: true
+          },
+          border: {
+            color: 'rgba(255, 255, 255, 0.5)',
+            width: 1
+          }
         }
       },
       plugins: {
         legend: {
           display: false // Hide legend
+        },
+        tooltip: {
+          backgroundColor: 'rgba(0, 0, 0, 0.8)',
+          titleColor: '#fff',
+          bodyColor: '#fff',
+          borderColor: '#555',
+          borderWidth: 1,
+          padding: 10,
+          displayColors: true
         }
       },
       responsive: true,
-      maintainAspectRatio: false
+      maintainAspectRatio: false,
+      animation: {
+        duration: 1000
+      },
+      elements: {
+        line: {
+          borderWidth: 3,
+          tension: 0.3
+        },
+        point: {
+          radius: 3,
+          hoverRadius: 5,
+          borderWidth: 2
+        }
+      }
     }
   });
 }
@@ -67,6 +134,7 @@ const ecChart = createLineChart(document.getElementById('ecChart'), 'Conductivit
 const tdsChart = createLineChart(document.getElementById('tdsChart'), 'TDS', '#66cc66'); // Light Green
 const tempChart = createLineChart(document.getElementById('tempChart'), 'Temperature', '#ff6347'); // Tomato
 const arsenicChart = createLineChart(document.getElementById('arsenicChart'), 'Arsenic', '#e91e63'); // Pink
+const bariumChart = createLineChart(document.getElementById('bariumChart'), 'Barium', '#ff6b6b'); // Coral red
 log("Charts created");
 
 // Function to update risk level indicator based on arsenic concentration
@@ -95,6 +163,46 @@ function updateArsenicRiskLevel(arsenicValue) {
     riskLevelEl.classList.add('risk-medium');
   }
   else if (arsenicValue <= 100) {
+    riskLevelEl.textContent = 'High';
+    riskLevelEl.classList.add('risk-high');
+  }
+  else {
+    riskLevelEl.textContent = 'Very High';
+    riskLevelEl.classList.add('risk-veryhigh');
+  }
+}
+
+// Function to update barium risk level indicator
+function updateBariumRiskLevel(bariumValue) {
+  const currentBariumEl = document.getElementById('currentBarium');
+  const riskLevelEl = document.getElementById('bariumRiskLevel');
+  
+  if (!currentBariumEl || !riskLevelEl) {
+    return; // Elements not found, possibly on a different page
+  }
+  
+  // Update the current value
+  currentBariumEl.textContent = bariumValue !== null && bariumValue !== undefined ? 
+                              bariumValue.toFixed(3) : 'N/A';
+  
+  // Clear previous risk classes
+  riskLevelEl.classList.remove('risk-low', 'risk-medium', 'risk-high', 'risk-veryhigh');
+  
+  // Set risk level based on EPA standards for barium in drinking water
+  // EPA Maximum Contaminant Level (MCL) for Barium is 2000 ppb (2 mg/L)
+  if (bariumValue === null || bariumValue === undefined) {
+    riskLevelEl.textContent = 'Unknown';
+    riskLevelEl.style.backgroundColor = '#888'; // Grey for unknown
+  } 
+  else if (bariumValue <= 500) { // Very conservative limit
+    riskLevelEl.textContent = 'Low';
+    riskLevelEl.classList.add('risk-low');
+  }
+  else if (bariumValue <= 1000) { // Half the EPA limit
+    riskLevelEl.textContent = 'Medium';
+    riskLevelEl.classList.add('risk-medium');
+  }
+  else if (bariumValue <= 2000) { // EPA limit
     riskLevelEl.textContent = 'High';
     riskLevelEl.classList.add('risk-high');
   }
@@ -145,7 +253,7 @@ function updateGPSLocation(lat, lon) {
   }
 }
 
-// Updated updateCharts function with arsenic handling
+// Updated updateCharts function with arsenic and barium handling
 function updateCharts(data) {
   try {
     if (!data || Object.keys(data).length === 0) {
@@ -187,6 +295,8 @@ function updateCharts(data) {
     tempChart.data.datasets[0].data = [];
     arsenicChart.data.labels = [];
     arsenicChart.data.datasets[0].data = [];
+    bariumChart.data.labels = []; 
+    bariumChart.data.datasets[0].data = [];
 
     log(`Processing ${sensorData.length} data points`);
 
@@ -225,6 +335,12 @@ function updateCharts(data) {
         arsenicChart.data.labels.push(time);
         arsenicChart.data.datasets[0].data.push(parseFloat(item.Arsenic));
       }
+      
+      // Add Barium data processing
+      if (item.Barium !== undefined && item.Barium !== null) {
+        bariumChart.data.labels.push(time);
+        bariumChart.data.datasets[0].data.push(parseFloat(item.Barium));
+      }
     });
     
     // Update GPS info if available (use latest data from the main 'data' object received)
@@ -241,6 +357,11 @@ function updateCharts(data) {
     if (data.Arsenic !== undefined && data.Arsenic !== null) {
       updateArsenicRiskLevel(parseFloat(data.Arsenic));
     }
+    
+    // Update barium risk level indicator (use latest data)
+    if (data.Barium !== undefined && data.Barium !== null) {
+      updateBariumRiskLevel(parseFloat(data.Barium));
+    }
 
     // Update all charts
     phChart.update();
@@ -249,6 +370,7 @@ function updateCharts(data) {
     tdsChart.update();
     tempChart.update();
     arsenicChart.update();
+    bariumChart.update();
 
     log("Charts updated successfully");
   } catch (error) {
@@ -422,6 +544,11 @@ fetch('/lora/history') // Endpoint for historical data
       if (latestReading && latestReading.Arsenic !== undefined && latestReading.Arsenic !== null) {
         updateArsenicRiskLevel(parseFloat(latestReading.Arsenic));
       }
+      
+      // Update barium risk level with the most recent reading
+      if (latestReading && latestReading.Barium !== undefined && latestReading.Barium !== null) {
+        updateBariumRiskLevel(parseFloat(latestReading.Barium));
+      }
 
       // Process GPS data from all historical points to create the path
       pathCoordinates = [];
@@ -507,3 +634,6 @@ log("Dashboard initialization complete");
 
 // Initialize the arsenic risk level indicator
 updateArsenicRiskLevel(null);
+
+// Initialize the barium risk level indicator
+updateBariumRiskLevel(null);

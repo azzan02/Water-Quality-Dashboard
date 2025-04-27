@@ -31,21 +31,32 @@ period_lock = threading.Lock()
 MODEL_PATH = 'Random_Forest_(Dissolved_Arsenic).joblib'
 arsenic_model = None
 
-def load_model():
-    global arsenic_model
+# Load the barium prediction model
+BARIUM_MODEL_PATH = 'BARIUM_DISSOLVED_µG_L_model.pkl'
+barium_model = None
+
+def load_models():
+    global arsenic_model, barium_model
     try:
-        print(f"Attempting to load model from {os.path.abspath(MODEL_PATH)}")
+        print(f"Attempting to load arsenic model from {os.path.abspath(MODEL_PATH)}")
         if os.path.exists(MODEL_PATH):
             arsenic_model = joblib.load(MODEL_PATH)
             print(f"Successfully loaded arsenic prediction model from {MODEL_PATH}")
         else:
-            print(f"Warning: Model file {MODEL_PATH} not found at path: {os.path.abspath(MODEL_PATH)}")
+            print(f"Warning: Arsenic model file {MODEL_PATH} not found at path: {os.path.abspath(MODEL_PATH)}")
+            
+        print(f"Attempting to load barium model from {os.path.abspath(BARIUM_MODEL_PATH)}")
+        if os.path.exists(BARIUM_MODEL_PATH):
+            barium_model = joblib.load(BARIUM_MODEL_PATH)
+            print(f"Successfully loaded barium prediction model from {BARIUM_MODEL_PATH}")
+        else:
+            print(f"Warning: Barium model file {BARIUM_MODEL_PATH} not found at path: {os.path.abspath(BARIUM_MODEL_PATH)}")
     except Exception as e:
-        print(f"Error loading model: {str(e)}")
+        print(f"Error loading models: {str(e)}")
         print(traceback.format_exc())  # More detailed error info
 
-# Load the model when app starts
-load_model()
+# Load the models when app starts
+load_models()
 
 # Function to predict arsenic concentration
 def predict_arsenic(tds, ec, temp):
@@ -64,6 +75,25 @@ def predict_arsenic(tds, ec, temp):
         return round(float(prediction), 3)
     except Exception as e:
         print(f"Error predicting arsenic: {str(e)}")
+        return None
+
+# Function to predict barium concentration
+def predict_barium(ph, tds, ec, do, temp):
+    try:
+        if barium_model is None:
+            print("Warning: No barium model loaded, cannot predict barium")
+            return None
+            
+        # Prepare input features as expected by the model
+        features = np.array([[ph, tds, ec, do, temp]])
+        
+        # Make prediction
+        prediction = barium_model.predict(features)[0]
+        
+        # Return the prediction rounded to 3 decimal places
+        return round(float(prediction), 3)
+    except Exception as e:
+        print(f"Error predicting barium: {str(e)}")
         return None
 
 # ---------- Database Helpers ----------
@@ -93,6 +123,7 @@ def init_db():
             DO REAL,
             Temp REAL,
             Arsenic REAL,
+            Barium REAL,
             Lat TEXT,
             Lon TEXT,
             period_id INTEGER
@@ -131,6 +162,14 @@ def init_db():
             print("Added Arsenic column to existing database")
         except sqlite3.OperationalError as e:
             # Column might already exist, which will cause an error
+            if "duplicate column name" not in str(e):
+                print(f"Note: {e}")
+                
+        # Check if Barium column exists, if not add it
+        try:
+            db.execute('ALTER TABLE sensor_data ADD COLUMN Barium REAL')
+            print("Added Barium column to existing database")
+        except sqlite3.OperationalError as e:
             if "duplicate column name" not in str(e):
                 print(f"Note: {e}")
             
@@ -268,6 +307,15 @@ def receive_data():
         else:
             print("Missing one or more parameters required for arsenic prediction")
                 
+        # Predict barium concentration if we have the required parameters
+        if all(k in data and data[k] is not None for k in ['EC', 'pH', 'Temp', 'DO', 'TDs']):
+            barium_prediction = predict_barium(data['EC'], data['pH'], data['Temp'], data['DO'], data['TDS'])
+            if barium_prediction is not None:
+                data['Barium'] = barium_prediction
+                print(f"Predicted barium concentration: {barium_prediction}")
+        else:
+            print("Missing one or more parameters required for barium prediction")
+                
         with data_lock:
             latest_data = data.copy()
             print(f"Updated latest_data: {latest_data}")
@@ -278,8 +326,8 @@ def receive_data():
 
         # Save to database
         db = get_db()
-        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon, period_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
+        db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Barium, Lat, Lon, period_id)
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                           timestamp,
                           data.get('pH'),
                           data.get('EC'),
@@ -287,6 +335,7 @@ def receive_data():
                           data.get('DO'),
                           data.get('Temp'),
                           data.get('Arsenic'),
+                          data.get('Barium'),
                           data.get('Lat'),
                           data.get('Lon'),
                           period_id
@@ -530,63 +579,6 @@ def download_period_data(period_id):
         print(f"Error downloading period data: {str(e)}")
         print(traceback.format_exc())
         return f"Error: {str(e)}", 500
-
-# Add a test data endpoint for debugging
-@app.route('/test-data')
-def add_test_data():
-    """Generate and add test data for debugging purposes"""
-    import random
-    
-    # Generate random data
-    test_data = {
-        'pH': round(random.uniform(6.0, 9.0), 2),
-        'EC': round(random.uniform(0.5, 1.5), 2),
-        'TDS': round(random.uniform(0.1, 0.5), 2),
-        'DO': round(random.uniform(-2.0, 2.0), 2),
-        'Temp': round(random.uniform(15.0, 30.0), 2),
-        'timestamp': datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
-    }
-    
-    # Add random GPS if desired
-    if random.choice([True, False]):
-        test_data['Lat'] = str(round(random.uniform(30, 45), 6))
-        test_data['Lon'] = str(round(random.uniform(-120, -70), 6))
-    
-    # Predict arsenic concentration based on the test data
-    if arsenic_model is not None:
-        test_data['Arsenic'] = predict_arsenic(test_data['TDS'], test_data['EC'], test_data['Temp'])
-    
-    # Get current period_id if we're in a data collection period
-    with period_lock:
-        period_id = current_period_id
-    
-    # Save to latest_data and database
-    with data_lock:
-        global latest_data
-        latest_data = test_data.copy()
-        print(f"Generated test data: {latest_data}")
-    
-    # Save to database
-    db = get_db()
-    db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Lat, Lon, period_id)
-                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
-                      test_data.get('timestamp'),
-                      test_data.get('pH'),
-                      test_data.get('EC'),
-                      test_data.get('TDS'),
-                      test_data.get('DO'),
-                      test_data.get('Temp'),
-                      test_data.get('Arsenic'),
-                      test_data.get('Lat'),
-                      test_data.get('Lon'),
-                      period_id
-                  ))
-    db.commit()
-    
-    # Notify clients
-    notify_clients()
-    
-    return jsonify({'status': 'success', 'data': test_data})
 
 if __name__ == '__main__':
     init_db()

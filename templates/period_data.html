@@ -184,6 +184,10 @@
                 <h2>Arsenic (ppb)</h2>
                 <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
             </div>
+            <div class="panel">
+                <h2>Barium (ppb)</h2>
+                <div class="chart-container"><canvas id="bariumChart"></canvas></div>
+            </div>
             
             {% if has_gps_data %}
             <div class="panel full-width">
@@ -206,6 +210,7 @@
                             <th>DO (%)</th>
                             <th>Temp (°C)</th>
                             <th>Arsenic (ppb)</th>
+                            <th>Barium (ppb)</th>
                             {% if has_gps_data %}
                             <th>GPS</th>
                             {% endif %}
@@ -221,6 +226,7 @@
                             <td>{{ item.DO|default('N/A') }}</td>
                             <td>{{ item.Temp|default('N/A') }}</td>
                             <td>{{ item.Arsenic|default('N/A') }}</td>
+                            <td>{{ item.Barium|default('N/A') }}</td>
                             {% if has_gps_data %}
                             <td>
                                 {% if item.Lat and item.Lon %}
@@ -270,6 +276,7 @@
             const doValues = data.map(item => item.DO !== undefined && item.DO !== null ? parseFloat(item.DO) : null);
             const tempValues = data.map(item => item.Temp !== undefined && item.Temp !== null ? parseFloat(item.Temp) : null);
             const arsenicValues = data.map(item => item.Arsenic !== undefined && item.Arsenic !== null ? parseFloat(item.Arsenic) : null);
+            const bariumValues = data.map(item => item.Barium !== undefined && item.Barium !== null ? parseFloat(item.Barium) : null);
             
             // Create charts with error handling
             try {
@@ -279,6 +286,7 @@
                 createChart('doChart', 'Dissolved Oxygen (%)', timestamps, doValues, 'rgb(54, 162, 235)');
                 createChart('tempChart', 'Water Temperature (°C)', timestamps, tempValues, 'rgb(255, 99, 132)');
                 createChart('arsenicChart', 'Arsenic (ppb)', timestamps, arsenicValues, 'rgb(255, 206, 86)');
+                createChart('bariumChart', 'Barium (ppb)', timestamps, bariumValues, 'rgb(255, 107, 107)');
             } catch (chartError) {
                 console.error('Error creating charts:', chartError);
             }
@@ -309,12 +317,16 @@
                 datasets: [{
                     label: label,
                     data: values,
-                    backgroundColor: color,
+                    backgroundColor: color + '30', // More transparent fill
                     borderColor: color,
-                    borderWidth: 2,
+                    borderWidth: 3,
                     tension: 0.1,
-                    fill: false,
-                    pointRadius: 3
+                    fill: true,
+                    pointRadius: 3,
+                    pointHoverRadius: 5,
+                    pointBackgroundColor: color,
+                    pointBorderColor: '#fff',
+                    pointBorderWidth: 1.5
                 }]
             },
             options: {
@@ -325,33 +337,83 @@
                         ticks: {
                             maxRotation: 45,
                             minRotation: 45,
-                            color: '#ccc'
+                            color: '#ccc',
+                            font: {
+                                size: 11
+                            }
                         },
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(255, 255, 255, 0.25)',
+                            tickLength: 8,
+                            lineWidth: 1,
+                            drawBorder: true,
+                            drawOnChartArea: true,
+                            drawTicks: true,
+                            z: 0 // Place grid lines behind data
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            width: 1
                         }
                     },
                     y: {
                         beginAtZero: false,
                         ticks: {
-                            color: '#ccc'
+                            color: '#ccc',
+                            font: {
+                                size: 11
+                            },
+                            padding: 8
                         },
                         grid: {
-                            color: 'rgba(255, 255, 255, 0.1)'
+                            color: 'rgba(255, 255, 255, 0.25)',
+                            tickLength: 8,
+                            lineWidth: 1,
+                            drawBorder: true,
+                            drawOnChartArea: true,
+                            drawTicks: true,
+                            z: 0 // Place grid lines behind data
+                        },
+                        border: {
+                            color: 'rgba(255, 255, 255, 0.5)',
+                            width: 1
                         }
                     }
                 },
                 plugins: {
                     legend: {
                         labels: {
-                            color: '#fff'
+                            color: '#fff',
+                            font: {
+                                size: 13
+                            }
                         }
+                    },
+                    tooltip: {
+                        backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                        titleColor: '#fff',
+                        bodyColor: '#fff',
+                        borderColor: '#555',
+                        borderWidth: 1,
+                        padding: 10
                     }
+                },
+                animation: {
+                    duration: 1000
+                },
+                elements: {
+                    line: {
+                        borderWidth: 3
+                    }
+                },
+                interaction: {
+                    mode: 'index',
+                    intersect: false
                 }
             }
         });
     }
-    
+
     // Function to create map with data points
     function createMap(data) {
         // Filter data points with valid GPS coordinates
@@ -365,7 +427,8 @@
                 TDS: item.TDS,
                 DO: item.DO,
                 Temp: item.Temp,
-                Arsenic: item.Arsenic
+                Arsenic: item.Arsenic,
+                Barium: item.Barium
             }));
         
         if (gpsPoints.length === 0) return;
@@ -388,6 +451,7 @@
                 <strong>DO:</strong> ${point.DO || 'N/A'} %<br>
                 <strong>Temp:</strong> ${point.Temp || 'N/A'} °C<br>
                 <strong>Arsenic:</strong> ${point.Arsenic || 'N/A'} ppb<br>
+                <strong>Barium:</strong> ${point.Barium || 'N/A'} ppb<br>
                 <strong>Coordinates:</strong> ${point.lat}, ${point.lon}
             `;
             
