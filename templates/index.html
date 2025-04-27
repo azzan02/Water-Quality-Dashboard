@@ -13,6 +13,9 @@
     crossorigin=""></script>
   <link rel="stylesheet" href="/static/styles.css">
   <style>
+    * {
+      box-sizing: border-box;
+    }
     body {
         background-color: #031521;
         color: #fff;
@@ -26,7 +29,6 @@
         border: 1px solid #041e30;
         border-radius: 5px;
         padding: 15px;
-        margin: 10px;
     }
     .dashboard {
         display: flex;
@@ -48,7 +50,7 @@
         border-radius: 4px;
     }
     .period-controls {
-      margin: 15px 0;
+      margin: 15px 20px;
       padding: 15px;
       background-color: #061a2a;
       border-radius: 5px;
@@ -121,7 +123,7 @@
       display: inline-block;
     }
     .nav-bar {
-        padding: 12px 25px;
+        padding: 12px 20px;
         margin: 20px 0;
         display: flex;
         gap: 20px;
@@ -160,100 +162,106 @@
       border-radius: 5px;
       border-left: 4px solid #0a4d7c;
     }
+    .container {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 0 20px;
+    }
   </style>
 </head>
 <body>
-  <h1>BlueShield USV <span class="status-indicator" id="connectionStatus"></span></h1>
-  <div class="last-updated" id="lastUpdated">Last updated: Never</div>
-  
-  <nav class="nav-bar">
-    <a href="/" class="nav-btn active">Dashboard</a>
-    <a href="/periods" class="nav-btn">View All Periods</a>
-  </nav>
-
-  <!-- Period Data Collection Controls -->
-  <div class="period-controls">
-    <div id="activePeriodInfo" class="active-period">
-      <strong>Active Collection:</strong> <span id="activePeriodName"></span>
-      <span id="activePeriodTime"></span>
-    </div>
+  <div class="container">
+    <h1 style="display: flex; align-items: center; justify-content: center;">BlueShield USV <span class="status-indicator" id="connectionStatus"></span></h1>
+    <div class="last-updated" id="lastUpdated">Last updated: Never</div>
     
-    <form id="periodForm">
-      <div class="form-group">
-        <label for="periodName">Period Name:</label>
-        <input type="text" id="periodName" placeholder="Enter a name for this collection period">
-      </div>
-      <div class="form-group">
-        <label for="periodNotes">Notes:</label>
-        <input type="text" id="periodNotes" placeholder="Optional notes">
-      </div>
-      <button type="button" id="startPeriodBtn" class="btn-start">Start Collection</button>
-      <button type="button" id="stopPeriodBtn" class="btn-stop" style="display:none;">Stop Collection</button>
-    </form>
-  </div>
+    <nav class="nav-bar">
+      <a href="/" class="nav-btn active">Dashboard</a>
+      <a href="/periods" class="nav-btn">View All Periods</a>
+    </nav>
 
-  <div class="dashboard">
-    <h2 class="section-heading">Water Parameters</h2>
-    <div class="grid-section">
-      <div class="panel">
-        <h2>Water pH</h2>
-        <div class="chart-container"><canvas id="phChart"></canvas></div>
+    <!-- Period Data Collection Controls -->
+    <div class="period-controls">
+      <div id="activePeriodInfo" class="active-period">
+        <strong>Active Collection:</strong> <span id="activePeriodName"></span>
+        <span id="activePeriodTime"></span>
       </div>
-      <div class="panel">
-        <h2>Dissolved Oxygen (%)</h2>
-        <div class="chart-container"><canvas id="doChart"></canvas></div>
+      
+      <form id="periodForm">
+        <div class="form-group">
+          <label for="periodName">Period Name:</label>
+          <input type="text" id="periodName" placeholder="Enter a name for this collection period">
+        </div>
+        <div class="form-group">
+          <label for="periodNotes">Notes:</label>
+          <input type="text" id="periodNotes" placeholder="Optional notes">
+        </div>
+        <button type="button" id="startPeriodBtn" class="btn-start">Start Collection</button>
+        <button type="button" id="stopPeriodBtn" class="btn-stop" style="display:none;">Stop Collection</button>
+      </form>
+    </div>
+
+    <div class="dashboard">
+      <h2 class="section-heading">Water Parameters</h2>
+      <div class="grid-section">
+        <div class="panel">
+          <h2>Water pH</h2>
+          <div class="chart-container"><canvas id="phChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <h2>Dissolved Oxygen (%)</h2>
+          <div class="chart-container"><canvas id="doChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <h2>Conductivity (uS/cm)</h2>
+          <div class="chart-container"><canvas id="ecChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <h2>Total Dissolved Solids (ppm)</h2>
+          <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+        </div>
+        <div class="panel">
+          <h2>Water Temperature (°C)</h2>
+          <div class="chart-container"><canvas id="tempChart"></canvas></div>
+        </div>
       </div>
-      <div class="panel">
-        <h2>Conductivity (uS/cm)</h2>
-        <div class="chart-container"><canvas id="ecChart"></canvas></div>
-      </div>
-      <div class="panel">
-        <h2>Total Dissolved Solids (ppm)</h2>
-        <div class="chart-container"><canvas id="tdsChart"></canvas></div>
-      </div>
-      <div class="panel">
-        <h2>Water Temperature (°C)</h2>
-        <div class="chart-container"><canvas id="tempChart"></canvas></div>
+
+      <h2 class="section-heading">Predicted Metals</h2>
+      <div class="grid-section">
+        <div class="panel">
+          <h2>Arsenic (ppb)</h2>
+          <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
+          <div class="arsenic-indicator">
+            <div>Current Level: <span id="currentArsenic">N/A</span> ppb</div>
+            <div>Risk Level: <span id="riskLevel" class="risk-level">Unknown</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Barium (ppb)</h2>
+          <div class="chart-container"><canvas id="bariumChart"></canvas></div>
+          <div class="barium-indicator">
+            <div>Current Level: <span id="currentBarium">N/A</span> ppb</div>
+            <div>Risk Level: <span id="bariumRiskLevel" class="risk-level">Unknown</span></div>
+          </div>
+        </div>
+        <div class="panel">
+          <h2>Lithium (ppb)</h2>
+          <div class="chart-container"><canvas id="lithiumChart"></canvas></div>
+          <div class="lithium-indicator">
+            <div>Current Level: <span id="currentLithium">N/A</span> ppb</div>
+            <div>Risk Level: <span id="LithiumRiskLevel" class="risk-level">Unknown</span></div>
+          </div>
+        </div>
+      </div>    
+
+      <div class="panel full-width">
+        <h2>GPS Location</h2>
+        <div id="gpsInfo">No GPS Data Available</div>
+        <div id="map"></div>
       </div>
     </div>
 
-    <h2 class="section-heading">Predicted Metals</h2>
-    <div class="grid-section">
-      <div class="panel">
-        <h2>Arsenic (ppb)</h2>
-        <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
-        <div class="arsenic-indicator">
-          <div>Current Level: <span id="currentArsenic">N/A</span> ppb</div>
-          <div>Risk Level: <span id="riskLevel" class="risk-level">Unknown</span></div>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Barium (ppb)</h2>
-        <div class="chart-container"><canvas id="bariumChart"></canvas></div>
-        <div class="barium-indicator">
-          <div>Current Level: <span id="currentBarium">N/A</span> ppb</div>
-          <div>Risk Level: <span id="bariumRiskLevel" class="risk-level">Unknown</span></div>
-        </div>
-      </div>
-      <div class="panel">
-        <h2>Lithium (ppb)</h2>
-        <div class="chart-container"><canvas id="lithiumChart"></canvas></div>
-        <div class="lithium-indicator">
-          <div>Current Level: <span id="currentLithium">N/A</span> ppb</div>
-          <div>Risk Level: <span id="LithiumRiskLevel" class="risk-level">Unknown</span></div>
-        </div>
-      </div>
-    </div>    
-
-    <div class="panel full-width">
-      <h2>GPS Location</h2>
-      <div id="gpsInfo">No GPS Data Available</div>
-      <div id="map"></div>
-    </div>
+    <div id="debug" style="display: none;"></div>
   </div>
-
-  <div id="debug" style="display: none;"></div>
-
   <script src="/static/main.js"></script>
   <script>
     // Period Collection Controls
