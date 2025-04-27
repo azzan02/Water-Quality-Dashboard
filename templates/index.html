@@ -29,10 +29,15 @@
         margin: 10px;
     }
     .dashboard {
+        display: flex;
+        flex-direction: column;
+        gap: 20px;
+        padding: 20px;
+    }
+    .grid-section {
         display: grid;
         grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
         gap: 20px;
-        padding: 20px;
     }
     .panel.full-width {
         grid-column: 1 / -1;
@@ -144,6 +149,17 @@
         border-color: #063557;
         box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.2);
     }
+    .section-heading {
+      width: 100%;
+      padding: 15px 20px;
+      margin: 20px 0 10px 0;
+      color: #fff;
+      font-size: 24px;
+      font-weight: 500;
+      background-color: #041e30;
+      border-radius: 5px;
+      border-left: 4px solid #0a4d7c;
+    }
   </style>
 </head>
 <body>
@@ -177,42 +193,50 @@
   </div>
 
   <div class="dashboard">
-    <div class="panel">
-      <h2>Water pH</h2>
-      <div class="chart-container"><canvas id="phChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Dissolved Oxygen (%)</h2>
-      <div class="chart-container"><canvas id="doChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Conductivity (uS/cm)</h2>
-      <div class="chart-container"><canvas id="ecChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Total Dissolved Solids (ppm)</h2>
-      <div class="chart-container"><canvas id="tdsChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Water Temperature (°C)</h2>
-      <div class="chart-container"><canvas id="tempChart"></canvas></div>
-    </div>
-    <div class="panel">
-      <h2>Arsenic (ppb)</h2>
-      <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
-      <div class="arsenic-indicator">
-        <div>Current Level: <span id="currentArsenic">N/A</span> ppb</div>
-        <div>Risk Level: <span id="riskLevel" class="risk-level">Unknown</span></div>
+    <h2 class="section-heading">Water Parameters</h2>
+    <div class="grid-section">
+      <div class="panel">
+        <h2>Water pH</h2>
+        <div class="chart-container"><canvas id="phChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Dissolved Oxygen (%)</h2>
+        <div class="chart-container"><canvas id="doChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Conductivity (uS/cm)</h2>
+        <div class="chart-container"><canvas id="ecChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Total Dissolved Solids (ppm)</h2>
+        <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+      </div>
+      <div class="panel">
+        <h2>Water Temperature (°C)</h2>
+        <div class="chart-container"><canvas id="tempChart"></canvas></div>
       </div>
     </div>
-    <div class="panel">
-      <h2>Barium (ppb)</h2>
-      <div class="chart-container"><canvas id="bariumChart"></canvas></div>
-      <div class="barium-indicator">
-        <div>Current Level: <span id="currentBarium">N/A</span> ppb</div>
-        <div>Risk Level: <span id="bariumRiskLevel" class="risk-level">Unknown</span></div>
+
+    <h2 class="section-heading">Predicted Metals</h2>
+    <div class="grid-section">
+      <div class="panel">
+        <h2>Arsenic (ppb)</h2>
+        <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
+        <div class="arsenic-indicator">
+          <div>Current Level: <span id="currentArsenic">N/A</span> ppb</div>
+          <div>Risk Level: <span id="riskLevel" class="risk-level">Unknown</span></div>
+        </div>
+      </div>
+      <div class="panel">
+        <h2>Barium (ppb)</h2>
+        <div class="chart-container"><canvas id="bariumChart"></canvas></div>
+        <div class="barium-indicator">
+          <div>Current Level: <span id="currentBarium">N/A</span> ppb</div>
+          <div>Risk Level: <span id="bariumRiskLevel" class="risk-level">Unknown</span></div>
+        </div>
       </div>
     </div>
+
     <div class="panel full-width">
       <h2>GPS Location</h2>
       <div id="gpsInfo">No GPS Data Available</div>

@@ -13,6 +13,18 @@
       crossorigin=""></script>
     <link rel="stylesheet" href="/static/styles.css">
     <style>
+        body {
+            font-family: Arial, sans-serif;
+            background-color: #031521;
+            color: #fff;
+        }
+        .panel {
+            background-color: #02182b;
+            border: 1px solid #041e30;
+            border-radius: 5px;
+            padding: 15px;
+            margin: 10px;
+        }
         .container {
             max-width: 1200px;
             margin: 0 auto;
@@ -87,7 +99,7 @@
         table {
             width: 100%;
             border-collapse: collapse;
-            background-color: #09385c;
+            background-color: #082032;
             border: 1px solid #0a4d7c;
         }
         
@@ -108,12 +120,32 @@
             color: #fff;
         }
         
-        tr:hover {
-            background-color: #0a4d7c;
+        .controls {
+            margin: 40px 0;  /* Increased from default margin */
+            text-align: left;
+            padding: 0 20px;
         }
-        
-        tbody tr:nth-child(even) {
-            background-color: #084169;
+        .dashboard {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding: 20px;
+        }
+        .grid-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+            gap: 20px;
+        }
+        .section-heading {
+            width: 100%;
+            padding: 15px 20px;
+            margin: 20px 0 10px 0;
+            color: #fff;
+            font-size: 24px;
+            font-weight: 500;
+            background-color: #041e30;
+            border-radius: 5px;
+            border-left: 4px solid #0a4d7c;
         }
     </style>
 </head>
@@ -158,37 +190,44 @@
             <p style="text-align: center; padding: 20px;">No data available for this period.</p>
         </div>
 
-        <h2 style="margin: 20px 0 10px 20px;">Data Visualization</h2>
+        
         <div class="dashboard">
-            <div class="panel">
-                <h2>Water pH</h2>
-                <div class="chart-container"><canvas id="phChart"></canvas></div>
+            <h2 class="section-heading">Water Parameters</h2>
+            <div class="grid-section">
+                <div class="panel">
+                    <h2>Water pH</h2>
+                    <div class="chart-container"><canvas id="phChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2>Dissolved Oxygen (%)</h2>
+                    <div class="chart-container"><canvas id="doChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2>Conductivity (uS/cm)</h2>
+                    <div class="chart-container"><canvas id="ecChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2>Total Dissolved Solids (ppm)</h2>
+                    <div class="chart-container"><canvas id="tdsChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2>Water Temperature (°C)</h2>
+                    <div class="chart-container"><canvas id="tempChart"></canvas></div>
+                </div>
             </div>
-            <div class="panel">
-                <h2>Dissolved Oxygen (%)</h2>
-                <div class="chart-container"><canvas id="doChart"></canvas></div>
+
+            <h2 class="section-heading">Predicted Metals</h2>
+            <div class="grid-section">
+                <div class="panel">
+                    <h2>Arsenic (ppb)</h2>
+                    <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
+                </div>
+                <div class="panel">
+                    <h2>Barium (ppb)</h2>
+                    <div class="chart-container"><canvas id="bariumChart"></canvas></div>
+                </div>
             </div>
-            <div class="panel">
-                <h2>Conductivity (uS/cm)</h2>
-                <div class="chart-container"><canvas id="ecChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2>Total Dissolved Solids (ppm)</h2>
-                <div class="chart-container"><canvas id="tdsChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2>Water Temperature (°C)</h2>
-                <div class="chart-container"><canvas id="tempChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2>Arsenic (ppb)</h2>
-                <div class="chart-container"><canvas id="arsenicChart"></canvas></div>
-            </div>
-            <div class="panel">
-                <h2>Barium (ppb)</h2>
-                <div class="chart-container"><canvas id="bariumChart"></canvas></div>
-            </div>
-            
+
             {% if has_gps_data %}
             <div class="panel full-width">
                 <h2>GPS Map</h2>
@@ -321,7 +360,7 @@
                     borderColor: color,
                     borderWidth: 3,
                     tension: 0.1,
-                    fill: true,
+                    //fill: true,
                     pointRadius: 3,
                     pointHoverRadius: 5,
                     pointBackgroundColor: color,
