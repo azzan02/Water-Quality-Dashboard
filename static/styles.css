@@ -124,6 +124,13 @@ h1 {
   padding: 10px 0;
 }
 
+.lithium-indicator {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 0;
+}
+
 .risk-level {
   padding: 4px 8px;
   border-radius: 4px;
@@ -161,5 +168,22 @@ h1 {
 }
 
 .risk-barium-veryhigh {
+  background-color: #9c27b0;
+}
+
+/* Additional risk level colors specific to Lithium */
+.risk-lithium-low {
+  background-color: #4caf50;
+}
+
+.risk-lithium-medium {
+  background-color: #ff9800;
+}
+
+.risk-lithium-high {
+  background-color: #f44336;
+}
+
+.risk-lithium-veryhigh {
   background-color: #9c27b0;
 }

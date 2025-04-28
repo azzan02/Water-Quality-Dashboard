@@ -41,7 +41,7 @@ LITHIUM_MODEL_PATH = 'LITHIUM_DISSOLVED_µG_L_model.pkl'
 lithium_model = None
 
 def load_models():
-    global arsenic_model, barium_model
+    global arsenic_model, barium_model, lithium_model  # Added lithium_model to globals
     try:
         print(f"Attempting to load arsenic model from {os.path.abspath(MODEL_PATH)}")
         if os.path.exists(MODEL_PATH):
@@ -57,7 +57,7 @@ def load_models():
         else:
             print(f"Warning: Barium model file {BARIUM_MODEL_PATH} not found at path: {os.path.abspath(BARIUM_MODEL_PATH)}")
 
-        print(f"Attempting to load barium model from {os.path.abspath(BARIUM_MODEL_PATH)}")
+        print(f"Attempting to load lithium model from {os.path.abspath(LITHIUM_MODEL_PATH)}")  # Fixed print message
         if os.path.exists(LITHIUM_MODEL_PATH):
             lithium_model = joblib.load(LITHIUM_MODEL_PATH)
             print(f"Successfully loaded lithium prediction model from {LITHIUM_MODEL_PATH}")
@@ -117,7 +117,7 @@ def predict_barium(ph, tds, ec, do, temp):
 def predict_lithium(ph, tds, ec, do, temp):
     try:
         if lithium_model is None:
-            print("Warning: No lithium model loaded, cannot predict barium")
+            print("Warning: No lithium model loaded, cannot predict lithium")
             return None
             
         # Create DataFrame with named features
@@ -397,7 +397,7 @@ def receive_data():
         # Save to database
         db = get_db()
         db.execute('''INSERT INTO sensor_data (timestamp, pH, EC, TDS, DO, Temp, Arsenic, Barium, Lithium, Lat, Lon, period_id)
-                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
+                      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)''', (
                           timestamp,
                           data.get('pH'),
                           data.get('EC'),

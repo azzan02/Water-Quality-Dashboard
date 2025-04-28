@@ -213,7 +213,7 @@ function updateBariumRiskLevel(bariumValue) {
   }
 }
 
-// Function to update barium risk level indicator
+// Function to update lithium risk level indicator
 function updateLithiumRiskLevel(lithiumValue) {
   const currentLithiumEl = document.getElementById('currentLithium');
   const riskLevelEl = document.getElementById('lithiumRiskLevel');
@@ -229,21 +229,19 @@ function updateLithiumRiskLevel(lithiumValue) {
   // Clear previous risk classes
   riskLevelEl.classList.remove('risk-low', 'risk-medium', 'risk-high', 'risk-veryhigh');
   
-  // Set risk level based on EPA standards for barium in drinking water
-  // EPA Maximum Contaminant Level (MCL) for Barium is 2000 ppb (2 mg/L)
   if (lithiumValue === null || lithiumValue === undefined) {
     riskLevelEl.textContent = 'Unknown';
-    riskLevelEl.style.backgroundColor = '#888'; // Grey for unknown
+    riskLevelEl.classList.add('risk-unknown');
   } 
-  else if (lithiumValue <= 7) { // Very conservative limit
+  else if (lithiumValue <= 7) {
     riskLevelEl.textContent = 'Low';
     riskLevelEl.classList.add('risk-low');
   }
-  else if (lithiumValue <= 15) { // Half the EPA limit
+  else if (lithiumValue <= 15) {
     riskLevelEl.textContent = 'Medium';
     riskLevelEl.classList.add('risk-medium');
   }
-  else if (lithiumValue <= 40) { // EPA limit
+  else if (lithiumValue <= 40) {
     riskLevelEl.textContent = 'High';
     riskLevelEl.classList.add('risk-high');
   }
@@ -425,6 +423,7 @@ function updateCharts(data) {
     tempChart.update();
     arsenicChart.update();
     bariumChart.update();
+    lithiumChart.update();  // Add this line to update lithium chart
 
     log("Charts updated successfully");
   } catch (error) {
