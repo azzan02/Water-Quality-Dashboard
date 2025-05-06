@@ -155,11 +155,11 @@ function updateArsenicRiskLevel(arsenicValue) {
     riskLevelEl.textContent = 'Unknown';
     riskLevelEl.style.backgroundColor = '#888'; // Grey for unknown
   } 
-  else if (arsenicValue <= 16) { // 10 ppb is WHO recommended limit
+  else if (arsenicValue <= 16) { // 
     riskLevelEl.textContent = 'Low';
     riskLevelEl.classList.add('risk-low');
   }
-  else if (arsenicValue <= 25) { // 50 ppb is limit in many developing countries
+  else if (arsenicValue <= 26) { // 50 ppb is limit in many developing countries
     riskLevelEl.textContent = 'Medium';
     riskLevelEl.classList.add('risk-medium');
   }
