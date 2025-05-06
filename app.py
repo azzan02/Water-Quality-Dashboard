@@ -29,7 +29,7 @@ current_period_id = None
 period_lock = threading.Lock()
 
 # Load the arsenic prediction model
-MODEL_PATH = 'Random_Forest_(Dissolved_Arsenic).joblib'
+MODEL_PATH = 'Random_Forest_(Dissolved_Arsenic)_new.joblib'
 arsenic_model = None
 
 # Load the barium prediction model
