@@ -76,3 +76,11 @@ Follow the steps below to run the dashboard locally:
 ```bash
 git clone https://github.com/azzan02/Water-Quality-Dashboard.git
 cd Water-Quality-Dashboard
+
+```
+### 2. (Optional) Create and Activate a Virtual Environment
+For Windows:
+```bash
+python -m venv venv
+venv\Scripts\activate
+```
