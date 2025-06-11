@@ -66,3 +66,13 @@ These are used as features for ML-based prediction of:
 ### 📍 GPS Tracking Map
 ![GPS Tracking Map](assets/map1.jpeg)
 ![GPS Tracking Map](assets/map2.jpeg)
+
+## 🛠️ Setup Instructions
+
+Follow the steps below to run the dashboard locally:
+
+### 1. Clone the Repository
+
+```bash
+git clone https://github.com/azzan02/Water-Quality-Dashboard.git
+cd Water-Quality-Dashboard
