@@ -84,3 +84,23 @@ For Windows:
 python -m venv venv
 venv\Scripts\activate
 ```
+For macOS/linux:
+```bash
+python3 -m venv venv
+source venv/bin/activate
+```
+### 4. Run the Flask Application
+```bash
+python app.py
+```
+### 5. Open in Browser
+Visit:
+```bash
+http://localhost:5000
+```
+You should now see the live Water Quality Dashboard with real-time updates.
+
+```vbnet
+
+Let me know if you're deploying this online too (e.g., via PythonAnywhere or Heroku), and I can help add deployment instructions as well.
+```
