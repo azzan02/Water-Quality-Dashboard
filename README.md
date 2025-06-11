@@ -36,11 +36,11 @@ The dashboard provides a user-friendly interface to:
 
 ## Data Flow Overview
 ESP32 (receiver side)
-      ↓
+      ->
 LoRa Data Reception
-      ↓
-Flask API (api_handler.py)
-      ↓
+      ->
+Flask API 
+      ->
 Dashboard Display + ML Prediction
 
 ---
