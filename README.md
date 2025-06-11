@@ -56,3 +56,13 @@ These are used as features for ML-based prediction of:
 - Arsenic
 - Barium
 - Lithium
+
+## 🖥️ Screenshots
+### 🌐 Dashboard UI
+![Dashboard UI](assets/ui1.jpeg)
+![Dashboard UI](assets/ui2.jpeg)
+![Dashboard UI](assets/ui3.jpeg)
+
+### 📍 GPS Tracking Map
+![GPS Tracking Map](assets/map1.png)
+![GPS Tracking Map](assets/map2.png)
