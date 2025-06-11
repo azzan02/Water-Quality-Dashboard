@@ -104,3 +104,21 @@ You should now see the live Water Quality Dashboard with real-time updates.
 
 Let me know if you're deploying this online too (e.g., via PythonAnywhere or Heroku), and I can help add deployment instructions as well.
 ```
+
+## 🔗 Related Project
+
+This dashboard is part of the full **BlueShield-USV** system.  
+Check out the hardware, embedded systems, and machine learning integration here:  
+👉 [BlueShield-USV GitHub Repo](https://github.com/azzan02/BlueShield-USV)
+
+---
+
+## 📬 Contact
+
+For queries, feedback, or collaboration opportunities, feel free to:
+
+- 📩 Open an issue in this repository  
+- 💼 Connect on [LinkedIn](https://www.linkedin.com/in/your-profile) *(replace with your actual profile link)*  
+
+### Show your support
+If you found this project helpful or inspiring, don't forget to star ⭐ the repo and share your feedback!
