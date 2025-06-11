@@ -64,5 +64,5 @@ These are used as features for ML-based prediction of:
 ![Dashboard UI](assets/ui3.jpeg)
 
 ### 📍 GPS Tracking Map
-![GPS Tracking Map](assets/map1.png)
-![GPS Tracking Map](assets/map2.png)
+![GPS Tracking Map](assets/map1.jpeg)
+![GPS Tracking Map](assets/map2.jpeg)
