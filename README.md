@@ -34,15 +34,25 @@ The dashboard provides a user-friendly interface to:
 
 ---
 
-## 📂 Project Structure
+## Data Flow Overview
+ESP32 (receiver side)
+      ↓
+LoRa Data Reception
+      ↓
+Flask API (api_handler.py)
+      ↓
+Dashboard Display + ML Prediction
 
-```bash
-Water-Quality-Dashboard/
-│
-├── static/               # CSS, JS, images
-├── templates/            # HTML templates for Flask rendering
-├── app.py                # Main Flask server file
-├── api_handler.py        # Handles data reception from ESP32
-├── ml_predictor.py       # Predicts heavy metal concentrations
-├── requirements.txt      # Required Python packages
-└── README.md             # This file
+---
+
+## Sensors & Parameters Used
+The following sensor values are sent from the drone via LoRa and processed in this web portal:
+- pH
+- Total Dissolved Solids(TDS)
+- Dissolved Oxygen(DO)
+- Temperature
+  
+These are used as features for ML-based prediction of:
+- Arsenic
+- Barium
+- Lithium
